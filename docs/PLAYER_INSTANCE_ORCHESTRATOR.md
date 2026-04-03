@@ -28,6 +28,7 @@ API path: `scripts/player-instance-api.py`
 
 HTTP endpoints:
 
+- `GET /ui`
 - `GET /health`
 - `GET /status`
 - `POST /start`
@@ -71,6 +72,11 @@ Ansible deploys the manager and API in `/opt/ctf/orchestrator` and installs:
 - `player-instance-cleanup.timer`
 
 After `vagrant provision`, API listens on VM port `8181`.
+
+UI:
+
+- `http://192.168.56.10:8181/ui`
+- provides start/stop/status controls and TTL display
 
 Example call from host:
 
