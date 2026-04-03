@@ -100,3 +100,5 @@ Guide detaille: [docs/README_CHALLENGES.md](docs/README_CHALLENGES.md)
 - [docs/README_CHALLENGES.md](docs/README_CHALLENGES.md)
 - [docs/PLAYER_INSTANCE_ORCHESTRATOR.md](docs/PLAYER_INSTANCE_ORCHESTRATOR.md)
 - [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md)
+
+Orchestrator UI (team instance start/stop): http://192.168.56.10:8181/ui

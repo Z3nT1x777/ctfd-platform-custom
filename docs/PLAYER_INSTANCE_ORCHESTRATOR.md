@@ -28,11 +28,22 @@ API path: `scripts/player-instance-api.py`
 
 HTTP endpoints:
 
+- `GET /ui`
 - `GET /health`
 - `GET /status`
 - `POST /start`
 - `POST /stop`
 - `POST /cleanup`
+
+Authentication:
+
+- `Authorization: Bearer <token>`
+- or `X-Orchestrator-Token: <token>`
+
+Rate limiting:
+
+- in-memory limit per client (IP / forwarded IP)
+- configured by `ORCHESTRATOR_RATE_LIMIT_PER_MIN`
 
 ## Runtime model
 
@@ -72,10 +83,16 @@ Ansible deploys the manager and API in `/opt/ctf/orchestrator` and installs:
 
 After `vagrant provision`, API listens on VM port `8181`.
 
+UI:
+
+- `http://192.168.56.10:8181/ui`
+- provides start/stop/status controls and TTL display
+
 Example call from host:
 
 ```bash
 curl -X POST http://192.168.56.10:8181/start \
+	-H 'Authorization: Bearer ChangeMe-Orchestrator-Token' \
 	-H 'Content-Type: application/json' \
 	-d '{"challenge":"web-01-test","team":"team-alpha","ttl_min":60}'
 ```
