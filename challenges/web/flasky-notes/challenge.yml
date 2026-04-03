@@ -1,0 +1,10 @@
+name: web-flasky-notes
+category: web
+value: 100
+type: docker
+
+description: |
+  Reflected template injection style challenge based on user note rendering.
+
+flag: CTF{flasky_notes_flag}
+port: 5002

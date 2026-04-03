@@ -1,0 +1,30 @@
+name: Challenge Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "challenges/**"
+      - "scripts/validate_challenges_ci.py"
+      - ".github/workflows/challenge-validation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "challenges/**"
+      - "scripts/validate_challenges_ci.py"
+      - ".github/workflows/challenge-validation.yml"
+
+jobs:
+  validate-challenges:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate challenge structure
+        run: python scripts/validate_challenges_ci.py
