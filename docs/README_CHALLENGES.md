@@ -2,15 +2,23 @@
 
 This guide explains how to create, validate, and deploy a challenge on each supported OS.
 
-## Purpose of `challenges/_template`
+## Purpose of templates
 
-The folder [challenges/_template](../challenges/_template) is the canonical scaffold for new challenges.
+The folder [challenges/_templates](../challenges/_templates) contains canonical scaffolds per challenge family.
 
-- Copy it for every new challenge.
+Available families:
+
+- `web` (docker)
+- `osint` (static)
+- `sandbox` (docker)
+- `reverse` (docker)
+- `pwn` (docker)
+
+- Pick a family template for every new challenge.
 - Do not deploy it directly.
 - Keep it as the shared base so the team works with the same structure.
 
-Expected files inside a challenge folder:
+Expected files for docker challenges:
 
 - `Dockerfile`
 - `app.py`
@@ -19,6 +27,12 @@ Expected files inside a challenge folder:
 - `docker-compose.yml`
 - `challenge.yml`
 
+Expected files for static challenges (example: osint):
+
+- `challenge.yml`
+- `README.md`
+- optional resource files
+
 ## Windows workflow
 
 ### 1. Create a challenge
@@ -26,12 +40,19 @@ Expected files inside a challenge folder:
 ```powershell
 Set-Location "C:/Users/Ozen/Documents/ctf-platform-iaac-main/ctf-platform-iaac-main"
 ./scripts/new-challenge.ps1 -Name web-01-test
+./scripts/new-challenge.ps1 -Name web-01-test -Family web
 ```
 
 Optional explicit port:
 
 ```powershell
 ./scripts/new-challenge.ps1 -Name web-01-test -Port 5001
+```
+
+OSINT example:
+
+```powershell
+./scripts/new-challenge.ps1 -Name osint-01-profile -Family osint
 ```
 
 ### 2. Validate the structure
@@ -58,12 +79,19 @@ vagrant ssh -c "cd /vagrant/challenges/web-01-test && docker compose up -d --bui
 ```bash
 cd /path/to/ctf-platform-iaac-main
 bash ./scripts/new-challenge.sh web-01-test
+bash ./scripts/new-challenge.sh web-01-test --family web
 ```
 
 Optional explicit port:
 
 ```bash
 bash ./scripts/new-challenge.sh web-01-test --port 5001
+```
+
+OSINT example:
+
+```bash
+bash ./scripts/new-challenge.sh osint-01-profile --family osint
 ```
 
 ### 2. Validate the structure
@@ -94,7 +122,7 @@ vagrant ssh -c "cd /vagrant/challenges/web-01-test && docker compose up -d --bui
 
 ## Manual creation if you do not use the helper scripts
 
-1. Copy `challenges/_template` to a new folder.
+1. Copy `challenges/_templates/<family>` to a new folder.
 2. Rename the folder.
 3. Edit `challenge.yml`.
 4. Edit `app.py`, `Dockerfile`, and `requirements.txt`.

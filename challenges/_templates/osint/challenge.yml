@@ -1,0 +1,9 @@
+name: Challenge Name
+category: osint
+value: 100
+type: static
+
+description: |
+  Investigate public artifacts and submit the flag.
+
+flag: CTF{example_osint_flag}
