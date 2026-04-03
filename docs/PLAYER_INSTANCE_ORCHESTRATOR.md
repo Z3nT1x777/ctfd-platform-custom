@@ -34,6 +34,16 @@ HTTP endpoints:
 - `POST /stop`
 - `POST /cleanup`
 
+Authentication:
+
+- `Authorization: Bearer <token>`
+- or `X-Orchestrator-Token: <token>`
+
+Rate limiting:
+
+- in-memory limit per client (IP / forwarded IP)
+- configured by `ORCHESTRATOR_RATE_LIMIT_PER_MIN`
+
 ## Runtime model
 
 - Source challenge dir: `/vagrant/challenges/<challenge>`
@@ -76,6 +86,7 @@ Example call from host:
 
 ```bash
 curl -X POST http://192.168.56.10:8181/start \
+	-H 'Authorization: Bearer ChangeMe-Orchestrator-Token' \
 	-H 'Content-Type: application/json' \
 	-d '{"challenge":"web-01-test","team":"team-alpha","ttl_min":60}'
 ```
