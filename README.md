@@ -10,14 +10,18 @@ This repository provides an end-to-end Infrastructure as Code setup for a self-h
 
 Core capabilities already implemented:
 
-- Reproducible VM provisioning with Vagrant and Ansible
-- CTFd deployment on Docker Compose
-- Challenge templates by family (`web`, `osint`, `sandbox`, `reverse`, `pwn`)
-- Local and CI challenge structure validation
-- Per-team challenge instance orchestration with TTL-based cleanup
-- API authentication and rate limiting for orchestrator control
-- Web UI for orchestrator operations
-- Security preflight checks in CI
+- **Infrastructure:** Reproducible VM provisioning with Vagrant and Ansible
+- **Platform:** CTFd deployment on Docker Compose with centralized configuration
+- **Challenges:** Templates by family (`web`, `osint`, `sandbox`, `reverse`, `pwn`) with CI validation
+- **Orchestration:** Per-team challenge instance management with automatic TTL-based cleanup
+- **API Security:** HMAC-SHA256 request signing, per-team rate limiting (30 req/min), per-client rate limiting (60 req/min)
+- **Quotas:** Per-team instance quotas (max 3 concurrent by default, configurable)
+- **Audit Logging:** Centralized JSON audit logs to `/var/log/ctf/orchestrator-audit.log` with event tracking
+- **webhooks**: CTFd event trigger endpoint (`POST /ctfd/event`) for automated instance lifecycle
+- **Web UI:** Dashboard for orchestrator operations with team instance controls
+- **Secrets Management:** Ansible Vault support for production secret overrides (passwords, API keys, signing secrets)
+- **Reverse Proxy:** nginx ingress for controlled API exposure with X-Forwarded-For client tracking
+- **Validation:** Security preflight checks in CI and git hooks
 
 ## Technology Stack
 
@@ -68,10 +72,10 @@ Detailed guide: [docs/README_CHALLENGES.md](docs/README_CHALLENGES.md)
 
 ## Security Notes
 
-- Keep `.env` local and never commit it.
-- Development defaults may still exist in `ansible/vars/main.yml` depending on environment.
-- Run security preflight checks for pull requests touching sensitive configuration.
-- For strict enforcement in CI or local checks:
+- **Development:** Default credentials (`ChangeMe-*`, `demo-*`) are safe for local testing only
+- **Production:** Use Ansible Vault to override defaults with secure secrets (database passwords, API signing keys, webhook tokens)
+- **Setup:** See [docs/VAULT_SETUP.md](docs/VAULT_SETUP.md) for vault configuration and CI/CD integration
+- **CI/CD:** Run security preflight checks for pull requests touching sensitive configuration:
 
 ```bash
 SECURITY_STRICT=1 python scripts/security-preflight.py
@@ -79,7 +83,40 @@ SECURITY_STRICT=1 python scripts/security-preflight.py
 
 ## Documentation
 
-- [docs/WORKFLOW_PRIORITES.md](docs/WORKFLOW_PRIORITES.md)
-- [docs/README_CHALLENGES.md](docs/README_CHALLENGES.md)
-- [docs/PLAYER_INSTANCE_ORCHESTRATOR.md](docs/PLAYER_INSTANCE_ORCHESTRATOR.md)
-- [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md)
+| Document | Purpose | Audience |
+|----------|---------|----------|
+| [docs/WORKFLOW_PRIORITES.md](docs/WORKFLOW_PRIORITES.md) | Project roadmap by priority level (P1-P3), current implementation status | Project leads, contributors |
+| [docs/README_CHALLENGES.md](docs/README_CHALLENGES.md) | Challenge authoring and deployment workflow, template structure, validation rules | CTF authors, challenge creators |
+| [docs/PLAYER_INSTANCE_ORCHESTRATOR.md](docs/PLAYER_INSTANCE_ORCHESTRATOR.md) | Orchestrator API reference, endpoints, HMAC request signing, team quotas, audit logs | Developers, DevOps, API consumers |
+| [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md) | Security hardening controls, attack surface analysis, implemented defenses | Security engineers, auditors |
+| [docs/VAULT_SETUP.md](docs/VAULT_SETUP.md) | Ansible Vault configuration for production secrets, CI/CD integration, best practices | DevOps, sysadmins, operators |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | nginx & orchestrator debugging, common issues, log locations, emergency procedures | Operators, DevOps engineers |
+
+### Key Feature Documentation
+
+**Orchestrator API (New in v2.0):**
+- Authentication: Token-based (`X-Orchestrator-Token`) for GET, HMAC-SHA256 signatures for POST
+- Endpoints: `/status`, `/start`, `/stop`, `/cleanup`, `/ctfd/event` (webhook trigger)
+- Security: Per-team rate limiting (30 req/min) + per-client (60 req/min), instance quotas (max 3 active)
+- Audit: All events logged as JSON lines with timestamp, client IP, team, challenge, HTTP status
+
+**Vault Integration (New in v2.0):**
+- **Development:** Defaults in `ansible/vars/main.yml`, vault optional
+- **Production:** Encrypted `ansible/vars/vault.yml` overrides all secrets via `*_effective` variables
+- **CI/CD:** Vault password via GitHub Secrets or GitLab CI Variables, passed at runtime
+
+**Challenges (Updated):**
+- New warmup challenge: `challenges/web/simple-login/` for testing orchestrator deployment
+- Support for arbitrary Docker Compose services (not limited to specific languages)
+- Per-team isolation via orchestrator port mapping
+
+### Quick Reference: Access Points
+
+After `vagrant up --provision`:
+
+| Service | URL | Port | Purpose |
+|---------|-----|------|---------|
+| **CTFd** | http://192.168.56.10 | 8000 (internal) | Main CTF platform |
+| **CTFd (Local)** | http://localhost:8000 | Forwarded | CTFd from host |
+| **Orchestrator API** | http://192.168.56.10:8181 | 8181 (proxied) | Challenge instance control |
+| **Orchestrator UI** | http://192.168.56.10:8181/ui | 8181 | Web dashboard |
