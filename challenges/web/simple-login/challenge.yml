@@ -1,0 +1,27 @@
+name: Simple Login
+category: Web
+difficulty: Easy
+points: 50
+description: |
+  A simple web authentication challenge. Login with correct credentials to reveal the flag.
+  This is a warmup challenge for basic web security concepts.
+
+authors:
+  - CTF Platform Team
+
+tags:
+  - web
+  - authentication
+  - warmup
+
+hints:
+  - Try common credentials
+  - Default users included in app.py
+  - Basic authentication test
+
+instance:
+  type: docker-compose
+  compose_file: docker-compose.yml
+  ports:
+    - "5000:5000"
+  timeout: 60

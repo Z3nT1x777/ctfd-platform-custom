@@ -1,0 +1,1 @@
+FLAG{Authentification_B4sique_CTF}
