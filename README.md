@@ -49,25 +49,32 @@ vagrant up
 - `vagrant up` lance la VM et le provisioning.
 - CTFd est accessible depuis l'hote sur `http://localhost:8000` ou `http://192.168.56.10`.
 - La page `/setup` permet de creer le premier compte admin CTFd.
-- Les challenges se preparent a partir de `challenges/_template/`.
+- Les challenges se preparent a partir de `challenges/_templates/<family>/`.
 
 ## 🛠️ Ajouter un challenge
 
-Le dossier [challenges/_template](challenges/_template) est le squelette commun de tous les challenges. Il ne doit pas etre deploie tel quel: il doit etre copie puis specialise.
+Le dossier [challenges/_templates](challenges/_templates) contient les squelettes par famille (`web`, `osint`, `sandbox`, `reverse`, `pwn`).
 
 Pour un challenge de test sur Windows:
 
 ```powershell
 Set-Location "C:/Users/Ozen/Documents/ctf-platform-iaac-main/ctf-platform-iaac-main"
-./scripts/new-challenge.ps1 -Name web-01-test
+./scripts/new-challenge.ps1 -Name web-01-test -Family web
 ./scripts/validate-challenge.ps1 -Path challenges/web-01-test
 vagrant ssh -c "cd /vagrant/challenges/web-01-test && docker compose up -d --build"
+```
+
+Exemple OSINT (sans container):
+
+```powershell
+./scripts/new-challenge.ps1 -Name osint-01-profile -Family osint
+./scripts/validate-challenge.ps1 -Path challenges/osint-01-profile
 ```
 
 Pour Linux/macOS:
 
 ```bash
-bash ./scripts/new-challenge.sh web-01-test
+bash ./scripts/new-challenge.sh web-01-test --family web
 bash ./scripts/validate-challenge.sh challenges/web-01-test
 vagrant ssh -c "cd /vagrant/challenges/web-01-test && docker compose up -d --build"
 ```

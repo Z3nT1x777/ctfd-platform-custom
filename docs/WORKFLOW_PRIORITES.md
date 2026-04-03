@@ -25,12 +25,12 @@ Objectif: creation de challenge en moins de 10 minutes sans erreur de structure.
 3. Lancer la validation locale avant commit.
 4. Tester le challenge dans la VM.
 
-Le dossier `challenges/_template` est le squelette officiel. Il ne doit pas etre modifie pour un challenge reel: il sert de base unique pour tous les nouveaux challenges.
+Le dossier `challenges/_templates` contient les squelettes officiels par famille (`web`, `osint`, `sandbox`, `reverse`, `pwn`).
 
 Commandes Windows:
 
 ```powershell
-./scripts/new-challenge.ps1 -Name web-01-sqli
+./scripts/new-challenge.ps1 -Name web-01-sqli -Family web
 ./scripts/validate-challenge.ps1 -Path challenges/web-01-sqli
 vagrant ssh -c "cd /vagrant/challenges/web-01-sqli && docker compose up -d --build"
 ```
@@ -38,7 +38,7 @@ vagrant ssh -c "cd /vagrant/challenges/web-01-sqli && docker compose up -d --bui
 Commandes Linux/macOS:
 
 ```bash
-bash ./scripts/new-challenge.sh web-01-sqli
+bash ./scripts/new-challenge.sh web-01-sqli --family web
 bash ./scripts/validate-challenge.sh challenges/web-01-sqli
 vagrant ssh -c "cd /vagrant/challenges/web-01-sqli && docker compose up -d --build"
 ```

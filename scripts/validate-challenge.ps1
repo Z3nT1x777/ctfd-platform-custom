@@ -12,11 +12,6 @@ if (-not (Test-Path $challengePath)) {
 }
 
 $requiredFiles = @(
-    'Dockerfile',
-    'app.py',
-    'flag.txt',
-    'requirements.txt',
-    'docker-compose.yml',
     'challenge.yml'
 )
 
@@ -32,27 +27,44 @@ $composeYml = Join-Path $challengePath 'docker-compose.yml'
 
 if (Test-Path $challengeYml) {
     $content = Get-Content $challengeYml -Raw
-    foreach ($key in @('name', 'category', 'value', 'type', 'description', 'flag', 'port')) {
+    foreach ($key in @('name', 'category', 'value', 'type', 'description', 'flag')) {
         if ($content -notmatch ("(?m)^{0}:" -f [regex]::Escape($key))) {
             $errors += "challenge.yml missing key: $key"
         }
     }
 
-    $portMatch = Select-String -Path $challengeYml -Pattern '^port:\s*(\d+)' | Select-Object -First 1
-    if (-not $portMatch) {
-        $errors += 'challenge.yml missing numeric port'
-    } else {
-        $port = [int]$portMatch.Matches[0].Groups[1].Value
-        if ($port -lt 5001 -or $port -gt 5999) {
-            $errors += "Port out of expected range (5001-5999): $port"
-        }
+    $typeMatch = Select-String -Path $challengeYml -Pattern '^type:\s*(\w+)' | Select-Object -First 1
+    $challengeType = if ($typeMatch) { $typeMatch.Matches[0].Groups[1].Value } else { '' }
 
-        if (Test-Path $composeYml) {
-            $compose = Get-Content $composeYml -Raw
-            if ($compose -notmatch ("`"{0}:5000`"" -f $port)) {
-                $errors += "docker-compose.yml does not expose expected port mapping: $port:5000"
+    if ($challengeType -eq 'docker') {
+        foreach ($file in @('Dockerfile', 'app.py', 'flag.txt', 'requirements.txt', 'docker-compose.yml')) {
+            if (-not (Test-Path (Join-Path $challengePath $file))) {
+                $errors += "Missing required file for docker challenge: $file"
             }
         }
+
+        $portMatch = Select-String -Path $challengeYml -Pattern '^port:\s*(\d+)' | Select-Object -First 1
+        if (-not $portMatch) {
+            $errors += 'challenge.yml missing numeric port for docker challenge'
+        } else {
+            $port = [int]$portMatch.Matches[0].Groups[1].Value
+            if ($port -lt 5001 -or $port -gt 5999) {
+                $errors += "Port out of expected range (5001-5999): $port"
+            }
+
+            if (Test-Path $composeYml) {
+                $compose = Get-Content $composeYml -Raw
+                if ($compose -notmatch ("`"{0}:5000`"" -f $port)) {
+                    $errors += "docker-compose.yml does not expose expected port mapping: $port:5000"
+                }
+            }
+        }
+    } elseif ($challengeType -eq 'static') {
+        if (-not (Test-Path (Join-Path $challengePath 'README.md'))) {
+            $errors += 'Missing README.md for static challenge'
+        }
+    } else {
+        $errors += "Unsupported challenge type: $challengeType"
     }
 }
 

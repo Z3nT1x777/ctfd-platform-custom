@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 <challenge-name> [--port <5001-5999>]"
+  echo "Usage: $0 <challenge-name> [--family <web|osint|sandbox|reverse|pwn>] [--port <5001-5999>]"
 }
 
 if [[ $# -lt 1 ]]; then
@@ -13,9 +13,14 @@ fi
 NAME="$1"
 shift || true
 PORT=""
+FAMILY="web"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --family)
+      FAMILY="${2:-}"
+      shift 2
+      ;;
     --port)
       PORT="${2:-}"
       shift 2
@@ -33,9 +38,17 @@ if [[ ! "$NAME" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
   exit 1
 fi
 
+if [[ ! "$FAMILY" =~ ^(web|osint|sandbox|reverse|pwn)$ ]]; then
+  echo "Unsupported family '$FAMILY'."
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-TEMPLATE_PATH="$REPO_ROOT/challenges/_template"
+TEMPLATE_PATH="$REPO_ROOT/challenges/_templates/$FAMILY"
+if [[ ! -d "$TEMPLATE_PATH" ]]; then
+  TEMPLATE_PATH="$REPO_ROOT/challenges/_template"
+fi
 TARGET_PATH="$REPO_ROOT/challenges/$NAME"
 
 if [[ ! -d "$TEMPLATE_PATH" ]]; then
@@ -48,7 +61,9 @@ if [[ -e "$TARGET_PATH" ]]; then
   exit 1
 fi
 
-if [[ -z "$PORT" ]]; then
+CHALLENGE_TYPE=$(grep -E '^type:' "$TEMPLATE_PATH/challenge.yml" | awk '{print $2}' | tr -d '\r' || true)
+
+if [[ "$CHALLENGE_TYPE" == "docker" && -z "$PORT" ]]; then
   MAX_PORT=$(grep -RhsE '^port:[[:space:]]*[0-9]+' "$REPO_ROOT/challenges"/*/challenge.yml 2>/dev/null | awk '{gsub(/[^0-9]/, "", $2); print $2}' | sort -n | tail -1 || true)
   if [[ -z "$MAX_PORT" ]]; then
     PORT=5001
@@ -57,7 +72,7 @@ if [[ -z "$PORT" ]]; then
   fi
 fi
 
-if ! [[ "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 5001 || PORT > 5999 )); then
+if [[ "$CHALLENGE_TYPE" == "docker" ]] && { ! [[ "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 5001 || PORT > 5999 )); }; then
   echo "Port must be between 5001 and 5999. Provided: $PORT"
   exit 1
 fi
@@ -69,14 +84,23 @@ COMPOSE_YML="$TARGET_PATH/docker-compose.yml"
 FLAG_NAME="${NAME//-/_}_flag"
 
 sed -i.bak -E "s/^name:.*/name: ${NAME}/" "$CHALLENGE_YML"
-sed -i.bak -E "s/^port:[[:space:]]*[0-9]+[[:space:]]*$/port: ${PORT}/" "$CHALLENGE_YML"
+sed -i.bak -E "s/^category:.*/category: ${FAMILY}/" "$CHALLENGE_YML"
 sed -i.bak -E "s/^flag:.*/flag: CTF\{${FLAG_NAME}\}/" "$CHALLENGE_YML"
 rm -f "$CHALLENGE_YML.bak"
 
-sed -i.bak -E "s/^([[:space:]]*container_name:).*/\1 ${NAME}/" "$COMPOSE_YML"
-sed -i.bak -E "s/\"[0-9]+:5000\"/\"${PORT}:5000\"/" "$COMPOSE_YML"
-rm -f "$COMPOSE_YML.bak"
+if [[ "$CHALLENGE_TYPE" == "docker" ]]; then
+  sed -i.bak -E "s/^port:[[:space:]]*[0-9]+[[:space:]]*$/port: ${PORT}/" "$CHALLENGE_YML"
+  rm -f "$CHALLENGE_YML.bak"
+
+  if [[ -f "$COMPOSE_YML" ]]; then
+    sed -i.bak -E "s/^([[:space:]]*container_name:).*/\1 ${NAME}/" "$COMPOSE_YML"
+    sed -i.bak -E "s/\"[0-9]+:5000\"/\"${PORT}:5000\"/" "$COMPOSE_YML"
+    rm -f "$COMPOSE_YML.bak"
+  fi
+fi
 
 echo "Challenge created: $TARGET_PATH"
-echo "Assigned port: $PORT"
+if [[ "$CHALLENGE_TYPE" == "docker" ]]; then
+  echo "Assigned port: $PORT"
+fi
 echo "Next step: ./scripts/validate-challenge.sh challenges/$NAME"
