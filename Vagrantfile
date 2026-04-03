@@ -26,6 +26,8 @@ Vagrant.configure("2") do |config|
 
   # Initial provisioning (base installation)
   config.vm.provision "shell", inline: <<-SHELL
+    export DEBIAN_FRONTEND=noninteractive
+
     # Update system
     apt-get update
     apt-get upgrade -y
@@ -38,16 +40,28 @@ Vagrant.configure("2") do |config|
     sh get-docker.sh
     usermod -aG docker vagrant
 
-    # Install Docker Compose
-    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$$   (uname -s)-   $$(uname -m)" -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
+    # Install Docker Compose plugin
+    apt-get install -y docker-compose-plugin
 
-    # Install Ansible
-    apt-get install -y software-properties-common
-    add-apt-repository --yes --update ppa:ansible/ansible
-    apt-get install -y ansible
+    # Install a modern Ansible runtime and required collections
+    apt-get install -y python3-pip
+    python3 -m pip install --upgrade pip ansible
+    ansible-galaxy collection install community.docker
 
     echo "✅ Initial provisioning done!"
-    echo "🚀 Next step: vagrant ssh then cd /vagrant/ansible"
+    echo "🚀 Base provisioning done"
+  SHELL
+
+  # Run Ansible from a non-shared directory to avoid Vagrant/Ansible edge cases
+  config.vm.provision "shell", privileged: true, inline: <<-SHELL
+    set -e
+
+    rm -rf /root/ctf-ansible
+    mkdir -p /root/ctf-ansible
+    cp -a /vagrant/ansible/. /root/ctf-ansible/
+    chmod -R go-w /root/ctf-ansible
+
+    cd /root/ctf-ansible
+    ansible-playbook -i inventory playbooks/main.yml
   SHELL
 end
