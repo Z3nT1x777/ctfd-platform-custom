@@ -143,8 +143,10 @@ cmd_start() {
 
   local challenge_type
   challenge_type=$(grep -E '^type:' "$challenge_dir/challenge.yml" | awk '{print $2}' | tr -d '\r' | head -1 || true)
-  if [[ "$challenge_type" != "docker" ]]; then
-    echo "Only docker challenges can be spawned with this manager"
+  # Some CTFd challenge metadata may use non-docker type labels while still
+  # providing a valid docker-compose runtime. Prefer runtime files over metadata.
+  if [[ "$challenge_type" != "docker" && ! -f "$challenge_dir/docker-compose.yml" ]]; then
+    echo "Challenge is not spawnable: missing docker-compose.yml"
     exit 1
   fi
 
