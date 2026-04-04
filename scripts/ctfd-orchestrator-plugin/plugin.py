@@ -797,13 +797,13 @@ class OrchestrationPlugin:
     </div>
 
     <script>
-        async function launchInstance() {{
+        function launchInstance() {{
             const ttl = Number(document.getElementById('ttl').value || 60);
-            const btn = document.getElementById('launchBtn');
-            const btnText = document.getElementById('btnText');
-            const btnLoading = document.getElementById('btnLoading');
             const errorMsg = document.getElementById('errorMsg');
             const successMsg = document.getElementById('successMsg');
+
+            errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
 
             if (ttl < 5 || ttl > 240) {{
                 errorMsg.textContent = 'TTL must be between 5 and 240 minutes';
@@ -811,42 +811,8 @@ class OrchestrationPlugin:
                 return;
             }}
 
-            btn.disabled = true;
-            btnText.style.display = 'none';
-            btnLoading.style.display = 'inline';
-
-            try {{
-                const response = await fetch('/plugins/orchestrator/start', {{
-                    method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
-                    credentials: 'include',
-                    body: JSON.stringify({{ challenge_id: {challenge_id}, ttl_min: ttl }})
-                }});
-
-                if (response.status === 401 || response.status === 403) {{
-                    throw new Error('You must be logged in and in a team to launch instances');
-                }}
-
-                const data = await response.json();
-
-                if (!response.ok || !data.ok) {{
-                    throw new Error(data.error || 'Launch failed');
-                }}
-
-                successMsg.textContent = 'Instance launched successfully! Redirecting...';
-                successMsg.style.display = 'block';
-
-                setTimeout(() => {{
-                    window.location.href = data.instance.url;
-                }}, 2000);
-
-            }} catch (error) {{
-                errorMsg.textContent = 'Error: ' + error.message;
-                errorMsg.style.display = 'block';
-                btn.disabled = false;
-                btnText.style.display = 'inline';
-                btnLoading.style.display = 'none';
-            }}
+            // Use GET launch endpoint to avoid browser-side POST auth/CSRF pitfalls.
+            window.location.href = '/plugins/orchestrator/launch?challenge_id={challenge_id}&ttl_min=' + ttl;
         }}
 
         // Manual launch button - user clicks to start
