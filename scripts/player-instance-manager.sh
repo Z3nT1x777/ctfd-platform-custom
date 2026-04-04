@@ -52,6 +52,36 @@ ensure_dirs() {
   sudo mkdir -p "$INSTANCES_ROOT" "$LEASES_ROOT"
 }
 
+resolve_challenge_dir() {
+  local challenge="$1"
+  local base="/vagrant/challenges"
+  local direct="$base/$challenge"
+
+  if [[ -d "$direct" && -f "$direct/challenge.yml" ]]; then
+    echo "$direct"
+    return 0
+  fi
+
+  local dir
+  while IFS= read -r -d '' dir; do
+    local folder
+    folder=$(basename "$dir")
+    if [[ "$(sanitize "$folder")" == "$challenge" ]]; then
+      echo "$dir"
+      return 0
+    fi
+
+    local yml_name
+    yml_name=$(grep -E '^name:' "$dir/challenge.yml" | sed -E 's/^name:[[:space:]]*//' | tr -d '"\r' | head -1 || true)
+    if [[ -n "$yml_name" && "$(sanitize "$yml_name")" == "$challenge" ]]; then
+      echo "$dir"
+      return 0
+    fi
+  done < <(find "$base" -type f -name challenge.yml -print0 2>/dev/null | xargs -0 -n1 dirname -z)
+
+  return 1
+}
+
 write_lease() {
   local lease_file="$1"
   local challenge="$2"
@@ -99,9 +129,9 @@ cmd_start() {
     exit 1
   fi
 
-  local challenge_dir="/vagrant/challenges/$challenge"
-  if [[ ! -d "$challenge_dir" ]]; then
-    echo "Challenge folder not found: $challenge_dir"
+  local challenge_dir=""
+  if ! challenge_dir=$(resolve_challenge_dir "$challenge"); then
+    echo "Challenge folder not found for challenge=$challenge under /vagrant/challenges"
     exit 1
   fi
 
