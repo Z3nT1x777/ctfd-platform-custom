@@ -9,6 +9,7 @@ Handles challenge instance lifecycle:
 """
 
 import logging
+import html
 import json
 import os
 import re
@@ -243,6 +244,104 @@ class OrchestrationPlugin:
         if not challenge_dir:
             return False
         return (Path(challenge_dir) / "docker-compose.yml").exists()
+
+    def _challenge_access_hint(self, challenge) -> dict[str, str]:
+        """Read lightweight access hints from challenge.yml when available."""
+        mode = "auto"
+        ssh_user = ""
+        instructions = ""
+
+        challenge_dir = self._resolve_challenge_dir_from_name(str(getattr(challenge, "name", "") or ""))
+        if not challenge_dir:
+            return {"mode": mode, "ssh_user": ssh_user, "instructions": instructions}
+
+        yml_path = Path(challenge_dir) / "challenge.yml"
+        if not yml_path.exists():
+            return {"mode": mode, "ssh_user": ssh_user, "instructions": instructions}
+
+        try:
+            yml_text = yml_path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            return {"mode": mode, "ssh_user": ssh_user, "instructions": instructions}
+
+        m_mode = re.search(r"^(?:connection_mode|access_mode):\s*([a-zA-Z_-]+)\s*$", yml_text, flags=re.MULTILINE)
+        if m_mode:
+            mode = m_mode.group(1).strip().lower()
+
+        m_user = re.search(r"^ssh_user:\s*([^\n]+)$", yml_text, flags=re.MULTILINE)
+        if m_user:
+            ssh_user = m_user.group(1).strip().strip('"\'')
+
+        m_instr = re.search(r"^access_instructions:\s*([^\n]+)$", yml_text, flags=re.MULTILINE)
+        if m_instr:
+            instructions = m_instr.group(1).strip().strip('"\'')
+
+        return {"mode": mode, "ssh_user": ssh_user, "instructions": instructions}
+
+    def _build_access_methods(self, challenge, url: str, port: Any, stdout: str) -> list[dict[str, str]]:
+        """Build access methods for front-end rendering without hardcoding challenge categories."""
+        hints = self._challenge_access_hint(challenge)
+        mode = hints.get("mode", "auto") or "auto"
+        ssh_user = hints.get("ssh_user") or os.getenv("ORCHESTRATOR_SSH_USER", "ctf")
+        host = os.getenv("ORCHESTRATOR_PLAYER_HOST", "192.168.56.10")
+
+        connection_info = str(getattr(challenge, "connection_info", "") or "").strip()
+        raw_note = hints.get("instructions") or connection_info
+        low_blob = f"{connection_info}\n{stdout}".lower()
+
+        try:
+            port_num = int(port or 0)
+        except Exception:
+            port_num = 0
+
+        web_url = str(url or "").strip()
+        if not web_url and port_num > 0:
+            web_url = f"http://{host}:{port_num}"
+
+        methods: list[dict[str, str]] = []
+
+        def add_web(target_url: str) -> None:
+            if target_url and not any(m.get("type") == "web" for m in methods):
+                methods.append({"type": "web", "label": "Open in Browser", "value": target_url})
+
+        def add_ssh(target_port: int) -> None:
+            if target_port <= 0 or any(m.get("type") == "ssh" for m in methods):
+                return
+            methods.append(
+                {
+                    "type": "ssh",
+                    "label": "SSH Command",
+                    "linux": f"ssh {ssh_user}@{host} -p {target_port}",
+                    "windows": f"ssh {ssh_user}@{host} -p {target_port}",
+                }
+            )
+
+        def add_instruction(note: str) -> None:
+            note_text = (note or "").strip()
+            if note_text and not any(m.get("type") == "instruction" for m in methods):
+                methods.append({"type": "instruction", "label": "Instructions", "value": note_text})
+
+        if mode == "web":
+            add_web(web_url)
+        elif mode == "ssh":
+            add_ssh(port_num)
+            if not methods:
+                add_instruction(raw_note or "SSH challenge: runtime metadata is missing host/port.")
+        elif mode == "instruction":
+            add_instruction(raw_note or "Follow challenge instructions in CTFd.")
+        else:
+            # Auto mode: infer from runtime outputs and challenge metadata.
+            wants_ssh = "ssh" in low_blob or "-p " in connection_info.lower()
+            if wants_ssh:
+                add_ssh(port_num)
+                if not methods:
+                    add_instruction(raw_note or "SSH challenge: use your terminal to connect.")
+            elif web_url:
+                add_web(web_url)
+            else:
+                add_instruction(raw_note or "Instance launched. Check challenge description for access details.")
+
+        return methods
 
     def _resolve_team_id(self) -> str:
         """Resolve current user's team id in a CTFd-version-tolerant way."""
@@ -714,14 +813,61 @@ class OrchestrationPlugin:
 
             remaining = max(0, expires - int(time.time()))
 
-            if not url or url.endswith(":0"):
+            access_methods = self._build_access_methods(challenge, url, port, stdout)
+            if not access_methods:
                 return (
-                    "Launch completed but instance URL is unavailable. "
-                    "This challenge might require non-web access (e.g. SSH) or missing runtime port mapping.",
+                    "Launch completed, but no access method was resolved. "
+                    "Please check challenge instructions.",
                     500,
                 )
 
-            html = f"""
+            web_method = next((m for m in access_methods if m.get("type") == "web"), None)
+            redirect_url = web_method.get("value", "") if web_method else ""
+
+            method_blocks = []
+            for idx, method in enumerate(access_methods):
+                mtype = method.get("type")
+                if mtype == "web":
+                    method_blocks.append(
+                        f"""
+<div class=\"method\">
+    <h3>Web Access</h3>
+    <a class=\"btn btn-primary\" href=\"{html.escape(method.get('value', ''))}\" target=\"_blank\" rel=\"noopener\">Open Challenge Instance</a>
+</div>
+"""
+                    )
+                elif mtype == "ssh":
+                    linux_cmd = html.escape(method.get("linux", ""))
+                    windows_cmd = html.escape(method.get("windows", ""))
+                    method_blocks.append(
+                        f"""
+<div class=\"method\">
+    <h3>SSH Access</h3>
+    <p class=\"note\">Use one of these commands:</p>
+    <div class=\"cmd-row\">
+        <label>Linux/macOS</label>
+        <pre id=\"cmd-linux-{idx}\">{linux_cmd}</pre>
+        <button class=\"btn btn-secondary\" onclick=\"copyCmd('cmd-linux-{idx}')\">Copy</button>
+    </div>
+    <div class=\"cmd-row\">
+        <label>Windows (PowerShell)</label>
+        <pre id=\"cmd-win-{idx}\">{windows_cmd}</pre>
+        <button class=\"btn btn-secondary\" onclick=\"copyCmd('cmd-win-{idx}')\">Copy</button>
+    </div>
+</div>
+"""
+                    )
+                else:
+                    method_blocks.append(
+                        f"""
+<div class=\"method\">
+    <h3>Instructions</h3>
+    <pre>{html.escape(method.get('value', ''))}</pre>
+</div>
+"""
+                    )
+
+            html_page = f"""
 <!doctype html>
 <html lang=\"en\">
 <head>
@@ -822,10 +968,25 @@ class OrchestrationPlugin:
             line-height: 1.45;
         }}
 
-        .actions {{
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
+        .method {{
+            border: 1px solid var(--line);
+            background: rgba(255,255,255,0.02);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+        }}
+
+        .method h3 {{ margin: 0 0 8px; }}
+
+        .cmd-row {{ margin-bottom: 10px; }}
+        .cmd-row label {{ color: var(--muted); font-size: 0.85rem; display: block; margin-bottom: 6px; }}
+        pre {{
+            margin: 0 0 8px;
+            background: #0b1322;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 10px;
+            overflow-x: auto;
         }}
 
         .btn {{
@@ -876,11 +1037,11 @@ class OrchestrationPlugin:
             <div class=\"meta\">
                 <div class=\"pill\">
                     <div class=\"k\">Challenge</div>
-                    <div class=\"v\">{challenge.name}</div>
+                    <div class=\"v\">{html.escape(challenge.name)}</div>
                 </div>
                 <div class=\"pill\">
                     <div class=\"k\">Team</div>
-                    <div class=\"v\">{team_id}</div>
+                    <div class=\"v\">{html.escape(str(team_id))}</div>
                 </div>
                 <div class=\"pill\">
                     <div class=\"k\">TTL Remaining</div>
@@ -888,50 +1049,59 @@ class OrchestrationPlugin:
                 </div>
             </div>
 
-            <p class=\"note\">Your environment is ready. Use the main button to open it now, or return to challenges.</p>
+            <p class=\"note\">Access is generated from runtime signals and challenge metadata. Commands are copy-ready for Linux and Windows terminals.</p>
 
-            <div class=\"actions\">
-                <a class=\"btn btn-primary\" href=\"{url}\" target=\"_blank\" rel=\"noopener\">Open Challenge Instance</a>
-                <a class=\"btn btn-secondary\" href=\"/challenges\">Back to Challenges</a>
-            </div>
+            {''.join(method_blocks)}
 
-            <p class="tiny">Auto-redirecting in <span id="countdown">8</span>s... <a href="#" id="stayHere" style="color:#9ad1ff; margin-left:6px;">stay here</a></p>
+            <a class=\"btn btn-secondary\" href=\"/challenges\">Back to Challenges</a>
+
+            <p class=\"tiny\" id=\"autoLine\">Auto-redirecting in <span id=\"countdown\">8</span>s... <a href=\"#\" id=\"stayHere\" style=\"color:#9ad1ff; margin-left:6px;\">stay here</a></p>
         </div>
     </section>
 
     <script>
+        function copyCmd(id) {{
+            const text = document.getElementById(id).innerText;
+            navigator.clipboard.writeText(text).catch(() => {{}});
+        }}
+
         let n = 8;
         let cancelled = false;
         const el = document.getElementById('countdown');
         const stayLink = document.getElementById('stayHere');
+        const autoLine = document.getElementById('autoLine');
 
-        stayLink.addEventListener('click', (ev) => {{
-            ev.preventDefault();
-            cancelled = true;
-            el.textContent = 'paused';
-            stayLink.textContent = 'auto-redirect paused';
-            stayLink.style.pointerEvents = 'none';
-            stayLink.style.opacity = '0.8';
-        }});
+        if (!{json.dumps(bool(redirect_url))}) {{
+            autoLine.textContent = 'No automatic redirect for this access mode.';
+        }} else {{
+            stayLink.addEventListener('click', (ev) => {{
+                ev.preventDefault();
+                cancelled = true;
+                el.textContent = 'paused';
+                stayLink.textContent = 'auto-redirect paused';
+                stayLink.style.pointerEvents = 'none';
+                stayLink.style.opacity = '0.8';
+            }});
 
-        const timer = setInterval(() => {{
-            if (cancelled) {{
-                clearInterval(timer);
-                return;
-            }}
-            n -= 1;
-            if (n <= 0) {{
-                clearInterval(timer);
-                window.location.href = {json.dumps(url)};
-                return;
-            }}
-            el.textContent = String(n);
-        }}, 1000);
+            const timer = setInterval(() => {{
+                if (cancelled) {{
+                    clearInterval(timer);
+                    return;
+                }}
+                n -= 1;
+                if (n <= 0) {{
+                    clearInterval(timer);
+                    window.location.href = {json.dumps(redirect_url)};
+                    return;
+                }}
+                el.textContent = String(n);
+            }}, 1000);
+        }}
     </script>
 </body>
 </html>
 """
-            return html
+            return html_page
 
         @bp.route("/btn/<int:challenge_id>", methods=["GET"])
         def launch_button_page(challenge_id):
