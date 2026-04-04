@@ -62,8 +62,9 @@ resolve_challenge_dir() {
     return 0
   fi
 
-  local dir
-  while IFS= read -r -d '' dir; do
+  local yml dir
+  while IFS= read -r -d '' yml; do
+    dir=$(dirname "$yml")
     local folder
     folder=$(basename "$dir")
     if [[ "$(sanitize "$folder")" == "$challenge" ]]; then
@@ -77,7 +78,7 @@ resolve_challenge_dir() {
       echo "$dir"
       return 0
     fi
-  done < <(find "$base" -type f -name challenge.yml -print0 2>/dev/null | xargs -0 -n1 dirname -z)
+  done < <(find "$base" -type f -name challenge.yml -print0 2>/dev/null)
 
   return 1
 }
@@ -149,6 +150,8 @@ cmd_start() {
 
   ensure_dirs
 
+  local docker_compose=(sudo env HOME=/tmp DOCKER_CONFIG=/tmp/.docker docker compose)
+
   if [[ -z "$port" ]]; then
     port=$(find_free_port) || { echo "No free port found in ${PORT_MIN}-${PORT_MAX}"; exit 1; }
   fi
@@ -187,7 +190,7 @@ cmd_start() {
   sudo sed -i -E "s/\"[0-9]+:5000\"/\"${port}:5000\"/" "$instance_dir/docker-compose.yml"
   sudo sed -i -E "s/^([[:space:]]*container_name:).*/\1 ${project}_challenge/" "$instance_dir/docker-compose.yml"
 
-  sudo docker compose -p "$project" -f "$instance_dir/docker-compose.yml" up -d --build
+  "${docker_compose[@]}" -p "$project" -f "$instance_dir/docker-compose.yml" up -d --build
 
   local now expires_epoch
   now=$(date +%s)
@@ -229,7 +232,7 @@ cmd_stop() {
   # shellcheck disable=SC1090
   source "$lease_file"
 
-  sudo docker compose -p "$PROJECT" -f "$INSTANCE_DIR/docker-compose.yml" down || true
+  sudo env HOME=/tmp DOCKER_CONFIG=/tmp/.docker docker compose -p "$PROJECT" -f "$INSTANCE_DIR/docker-compose.yml" down || true
   sudo rm -rf "$INSTANCE_DIR"
   sudo rm -f "$lease_file"
 
@@ -249,7 +252,7 @@ cmd_status() {
     local remaining
     remaining=$(( EXPIRES_EPOCH - now ))
     local state="stopped"
-    if sudo docker compose -p "$PROJECT" -f "$INSTANCE_DIR/docker-compose.yml" ps --status running --services 2>/dev/null | grep -q .; then
+    if sudo env HOME=/tmp DOCKER_CONFIG=/tmp/.docker docker compose -p "$PROJECT" -f "$INSTANCE_DIR/docker-compose.yml" ps --status running --services 2>/dev/null | grep -q .; then
       state="running"
     fi
     echo "project=$PROJECT challenge=$CHALLENGE team=$TEAM port=$PORT state=$state ttl_remaining_sec=$remaining"
@@ -268,7 +271,7 @@ cmd_cleanup() {
     source "$lease"
     if (( EXPIRES_EPOCH <= now )); then
       echo "Cleaning expired instance: $PROJECT"
-      sudo docker compose -p "$PROJECT" -f "$INSTANCE_DIR/docker-compose.yml" down || true
+      sudo env HOME=/tmp DOCKER_CONFIG=/tmp/.docker docker compose -p "$PROJECT" -f "$INSTANCE_DIR/docker-compose.yml" down || true
       sudo rm -rf "$INSTANCE_DIR"
       sudo rm -f "$lease"
     fi
