@@ -620,13 +620,35 @@ class OrchestrationPlugin:
         @bp.route("/btn/<int:challenge_id>", methods=["GET"])
         def launch_button_page(challenge_id):
             """
-            Clickable launch button for players (no auth required for button page).
+            Clickable launch button for players.
+            Checks if user is authed + in a team; redirects to login if not.
             Returns HTML with a launch button that POST to /start endpoint.
-            Query params (optional): ttl_min (default 60), auto_redirect=true
+            Query params (optional): ttl_min (default 60)
             """
+            # Check auth: if user not logged in, redirect to login
+            user = get_current_user()
+            if not user or not getattr(user, "type", None):
+                # Redirect to login with 'next' to return to this page after login
+                return f"""
+                <script>
+                    window.location.href = '/login?next=/plugins/orchestrator/btn/{challenge_id}';
+                </script>
+                Not authorized. Redirecting to login...
+                """
+            
+            # Check if user is in a team (required for instance launch)
+            team_id = getattr(user, "team_id", None) or (getattr(user, "team", None) and getattr(user.team, "id", None))
+            if not team_id:
+                return """
+                <div style="font-family: sans-serif; padding: 20px; color: #c33;">
+                    <h2>Team Required</h2>
+                    <p>You must be part of a team to launch challenge instances.</p>
+                    <p><a href="/teams">Create or join a team</a></p>
+                </div>
+                """, 403
+
             ttl_min_raw = str(request.args.get("ttl_min", "60")).strip()
             ttl_min = int(ttl_min_raw) if ttl_min_raw.isdigit() else 60
-            auto_redirect = request.args.get("auto_redirect", "").lower() == "true"
 
             challenge = Challenges.query.get(challenge_id)
             if not challenge:
@@ -797,8 +819,13 @@ class OrchestrationPlugin:
                 const response = await fetch('/plugins/orchestrator/start', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
+                    credentials: 'include',
                     body: JSON.stringify({{ challenge_id: {challenge_id}, ttl_min: ttl }})
                 }});
+
+                if (response.status === 401 || response.status === 403) {{
+                    throw new Error('You must be logged in and in a team to launch instances');
+                }}
 
                 const data = await response.json();
 
@@ -822,8 +849,7 @@ class OrchestrationPlugin:
             }}
         }}
 
-        // Optional: Support auto-redirect on page load
-        {'window.onload = () => { launchInstance(); };' if auto_redirect else '// Manual launch button only'}
+        // Manual launch button - user clicks to start
     </script>
 </body>
 </html>
@@ -838,6 +864,51 @@ class OrchestrationPlugin:
             if not self._is_admin_user():
                 return "Forbidden", 403
             return render_template_string(UI_TEMPLATE)
+
+        @bp.route("/sync", methods=["POST"])
+        def sync_challenges_endpoint():
+            """
+            Sync challenges from Git to CTFd without needing API token.
+            Uses shared secret (ORCHESTRATOR_SIGNING_SECRET) for auth.
+            
+            Usage:
+                curl -X POST http://192.168.56.10/plugins/orchestrator/sync \
+                  -H "X-Orchestrator-Secret: ChangeMe-Orchestrator-Signing-Secret"
+            """
+            secret = os.getenv("ORCHESTRATOR_SIGNING_SECRET", "")
+            provided_secret = request.headers.get("X-Orchestrator-Secret", "")
+
+            if not secret or provided_secret != secret:
+                return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+            try:
+                # Query all challenges
+                challenges = Challenges.query.all()
+                synced = 0
+
+                for ch in challenges:
+                    # Generate button link for launch-mode connection_info
+                    button_url = f"{request.host_url.rstrip('/')}/plugins/orchestrator/btn/{ch.id}?ttl_min=60"
+                    
+                    # Update connection_info with button link (if not already set)
+                    if not ch.connection_info or "btn/" not in ch.connection_info:
+                        ch.connection_info = button_url
+                        synced += 1
+
+                from CTFd.models import db
+                db.session.commit()
+
+                logger.info(f"Sync completed: updated {synced}/{len(challenges)} challenges with button links")
+                return jsonify({
+                    "ok": True,
+                    "synced": synced,
+                    "total": len(challenges),
+                    "message": f"Updated {synced} challenge(s) with launch button links"
+                }), 200
+
+            except Exception as e:
+                logger.exception(f"Error in sync_challenges_endpoint: {e}")
+                return jsonify({"ok": False, "error": str(e)}), 500
 
         self.app.register_blueprint(bp)
 
