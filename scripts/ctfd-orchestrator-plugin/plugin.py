@@ -642,17 +642,197 @@ class OrchestrationPlugin:
                     500,
                 )
 
-            html = f"""
+                        html = f"""
 <!doctype html>
-<html>
-<head><meta charset=\"utf-8\" /><title>Challenge Launched</title></head>
-<body style=\"font-family: system-ui, sans-serif; margin: 24px;\">
-  <h2>Instance launched</h2>
-  <p><b>Challenge:</b> {challenge.name}</p>
-  <p><b>Team:</b> {team_id}</p>
-  <p><b>TTL remaining:</b> {remaining} seconds</p>
-  <p><a href=\"{url}\" target=\"_blank\">Open your challenge instance</a></p>
-  <p><a href=\"/challenges\">Back to challenges</a></p>
+<html lang=\"en\">
+<head>
+    <meta charset=\"utf-8\" />
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+    <title>Instance Ready</title>
+    <style>
+        :root {{
+            --bg-a: #0b1220;
+            --bg-b: #0f1f2f;
+            --card: #0f1726;
+            --text: #ecf2ff;
+            --muted: #a8b4ca;
+            --ok: #23c47e;
+            --btn-a: #16a34a;
+            --btn-b: #22c55e;
+            --btn-secondary-a: #1e293b;
+            --btn-secondary-b: #334155;
+            --ring: rgba(35, 196, 126, 0.35);
+            --line: rgba(255, 255, 255, 0.08);
+        }}
+
+        * {{ box-sizing: border-box; }}
+        body {{
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            background:
+                radial-gradient(1200px 700px at 10% -20%, #123a6a 0%, transparent 55%),
+                radial-gradient(900px 600px at 95% 120%, #1a5b5f 0%, transparent 55%),
+                linear-gradient(135deg, var(--bg-a), var(--bg-b));
+            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            color: var(--text);
+            padding: 24px;
+        }}
+
+        .card {{
+            width: min(680px, 96vw);
+            background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+            overflow: hidden;
+        }}
+
+        .head {{
+            padding: 22px 24px;
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+
+        .dot {{
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            background: var(--ok);
+            box-shadow: 0 0 0 8px var(--ring);
+            animation: pulse 1.8s infinite ease-in-out;
+        }}
+
+        @keyframes pulse {{
+            0% {{ box-shadow: 0 0 0 0 var(--ring); }}
+            70% {{ box-shadow: 0 0 0 12px rgba(35,196,126,0); }}
+            100% {{ box-shadow: 0 0 0 0 rgba(35,196,126,0); }}
+        }}
+
+        .title {{
+            margin: 0;
+            font-size: 1.55rem;
+            letter-spacing: 0.2px;
+        }}
+
+        .body {{ padding: 20px 24px 24px; }}
+
+        .meta {{
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 18px;
+        }}
+
+        .pill {{
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 10px 12px;
+        }}
+
+        .k {{ font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }}
+        .v {{ margin-top: 6px; font-size: 1rem; font-weight: 650; color: var(--text); word-break: break-word; }}
+
+        .note {{
+            color: var(--muted);
+            margin: 2px 0 16px;
+            line-height: 1.45;
+        }}
+
+        .actions {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }}
+
+        .btn {{
+            text-decoration: none;
+            border-radius: 10px;
+            padding: 11px 16px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            transition: transform 0.15s ease, opacity 0.15s ease;
+            border: 1px solid transparent;
+            display: inline-block;
+        }}
+
+        .btn:hover {{ transform: translateY(-1px); }}
+
+        .btn-primary {{
+            color: #06260f;
+            background: linear-gradient(90deg, var(--btn-a), var(--btn-b));
+            border-color: rgba(255,255,255,0.18);
+        }}
+
+        .btn-secondary {{
+            color: var(--text);
+            background: linear-gradient(90deg, var(--btn-secondary-a), var(--btn-secondary-b));
+            border-color: var(--line);
+        }}
+
+        .tiny {{
+            margin-top: 12px;
+            color: var(--muted);
+            font-size: 0.88rem;
+        }}
+
+        @media (max-width: 740px) {{
+            .meta {{ grid-template-columns: 1fr; }}
+            .btn {{ width: 100%; text-align: center; }}
+        }}
+    </style>
+</head>
+<body>
+    <section class=\"card\">
+        <header class=\"head\">
+            <span class=\"dot\" aria-hidden=\"true\"></span>
+            <h1 class=\"title\">Instance launched</h1>
+        </header>
+
+        <div class=\"body\">
+            <div class=\"meta\">
+                <div class=\"pill\">
+                    <div class=\"k\">Challenge</div>
+                    <div class=\"v\">{challenge.name}</div>
+                </div>
+                <div class=\"pill\">
+                    <div class=\"k\">Team</div>
+                    <div class=\"v\">{team_id}</div>
+                </div>
+                <div class=\"pill\">
+                    <div class=\"k\">TTL Remaining</div>
+                    <div class=\"v\">{remaining} seconds</div>
+                </div>
+            </div>
+
+            <p class=\"note\">Your environment is ready. Use the main button to open it now, or return to challenges.</p>
+
+            <div class=\"actions\">
+                <a class=\"btn btn-primary\" href=\"{url}\" target=\"_blank\" rel=\"noopener\">Open Challenge Instance</a>
+                <a class=\"btn btn-secondary\" href=\"/challenges\">Back to Challenges</a>
+            </div>
+
+            <p class=\"tiny\">Auto-redirecting in <span id=\"countdown\">2</span>s...</p>
+        </div>
+    </section>
+
+    <script>
+        let n = 2;
+        const el = document.getElementById('countdown');
+        const timer = setInterval(() => {{
+            n -= 1;
+            if (n <= 0) {{
+                clearInterval(timer);
+                window.location.href = {json.dumps(url)};
+                return;
+            }}
+            el.textContent = String(n);
+        }}, 1000);
+    </script>
 </body>
 </html>
 """
