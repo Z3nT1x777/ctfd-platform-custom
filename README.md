@@ -17,11 +17,12 @@ Core capabilities already implemented:
 - **API Security:** HMAC-SHA256 request signing, per-team rate limiting (30 req/min), per-client rate limiting (60 req/min)
 - **Quotas:** Per-team instance quotas (max 3 concurrent by default, configurable)
 - **Audit Logging:** Centralized JSON audit logs to `/var/log/ctf/orchestrator-audit.log` with event tracking
-- **webhooks**: CTFd event trigger endpoint (`POST /ctfd/event`) for automated instance lifecycle
+- **Webhooks:** CTFd event trigger endpoint (`POST /ctfd/event`) for automated instance lifecycle
 - **Web UI:** Dashboard for orchestrator operations with team instance controls
 - **Secrets Management:** Ansible Vault support for production secret overrides (passwords, API keys, signing secrets)
 - **Reverse Proxy:** nginx ingress for controlled API exposure with X-Forwarded-For client tracking
 - **Validation:** Security preflight checks in CI and git hooks
+- **Player Launch UX:** One-click launch pages in CTFd with access-aware rendering (web, SSH commands, instructions)
 
 ## Technology Stack
 
@@ -46,7 +47,7 @@ Access points after provisioning:
 
 - CTFd: http://192.168.56.10
 - CTFd (forwarded): http://localhost:8000
-- Orchestrator UI: http://192.168.56.10:8181/ui
+- Orchestrator UI (admin/dev): http://192.168.56.10:8181/ui
 
 ## Challenge Authoring Workflow
 
@@ -84,7 +85,7 @@ All the following security controls are implemented and active in production:
 | **4. Per-Team Rate Limiting** | 30 requests/minute per team_id | Configurable | Env var: `ORCHESTRATOR_TEAM_RATE_LIMIT_PER_MIN` | ✅ |
 | **5. Team Instance Quotas** | Max 3 concurrent instances per team (returns 409 when exceeded) | Configurable | Env var: `ORCHESTRATOR_TEAM_MAX_ACTIVE` | ✅ |
 | **6. Audit Logging** | JSON centralized logging to `/var/log/ctf/orchestrator-audit.log` | All events tracked | Compliance-ready queries | ✅ |
-| **7. CTFd Webhook** | `POST /ctfd/event` endpoint with `X-CTFd-Webhook-Token` validation | Webhook ready | Plugin integration TBD | ✅ API |
+| **7. CTFd Webhook** | `POST /ctfd/event` endpoint with `X-CTFd-Webhook-Token` validation | Webhook ready | Integrated with plugin flow | ✅ |
 | **8. Localhost-Only Binding** | API binds to 127.0.0.1:18181 (internal only, nginx proxy external) | Defense in depth | nginx reverse proxy on 0.0.0.0:8181 | ✅ |
 | **9. Ansible Vault** | Encrypted secret overrides for production credentials | Optional (defaults OK) | Required - all secrets in vault.yml | ✅ |
 | **10. Security Preflight CI** | Detects development defaults in PRs, fails on ChangeMe-* warnings | GitHub Actions | Blocks merge if insecure defaults | ✅ |
@@ -121,7 +122,7 @@ SECURITY_STRICT=1 python scripts/security-preflight.py
 ```bash
 # GitHub Actions / GitLab CI: Pass vault password via secrets
 # Set ANSIBLE_VAULT_PASSWORD environment variable
-# SeeI docs/VAULT_SETUP.md for complete CI/CD integration guide
+# See docs/VAULT_SETUP.md for complete CI/CD integration guide
 ```
 
 ### More Information
@@ -152,6 +153,14 @@ SECURITY_STRICT=1 python scripts/security-preflight.py
 - Endpoints: `/status`, `/start`, `/stop`, `/cleanup`, `/ctfd/event` (webhook trigger)
 - Security: Per-team rate limiting (30 req/min) + per-client (60 req/min), instance quotas (max 3 active)
 - Audit: All events logged as JSON lines with timestamp, client IP, team, challenge, HTTP status
+
+**Player Access Rendering (Current):**
+- Challenges with spawnable runtime (`docker-compose.yml`) are orchestrated
+- Static challenges are excluded from launch orchestration
+- Launch page renders the right access mode:
+	- `web`: browser button + optional auto-redirect
+	- `ssh`: copy-ready commands for Linux/macOS and Windows PowerShell
+	- `instruction`: textual instructions when no direct web endpoint applies
 
 **Vault Integration (New in v2.0):**
 - **Development:** Defaults in `ansible/vars/main.yml`, vault optional

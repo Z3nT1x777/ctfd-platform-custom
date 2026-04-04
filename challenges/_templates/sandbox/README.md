@@ -22,3 +22,20 @@ Use this template for isolated Docker-based sandbox challenges.
 - Enforce strict isolation assumptions in container runtime.
 - Keep all required resources in repository-controlled paths.
 - Confirm challenge start and cleanup behavior before PR submission.
+
+## Access Metadata
+
+Set explicit mode when possible:
+
+```yaml
+connection_mode: web
+```
+
+or
+
+```yaml
+connection_mode: ssh
+ssh_user: ctf
+```
+
+Use `instruction` mode if player access must be explained instead of linked.

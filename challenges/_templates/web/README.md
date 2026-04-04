@@ -23,3 +23,13 @@ Use this template for Docker-based web challenges.
 - Use a unique host port in `docker-compose.yml`.
 - Keep the application deterministic and reproducible.
 - Avoid external dependencies that cannot be reproduced during deployment.
+
+## Access Metadata
+
+For web challenges, set metadata so player UI behavior is explicit:
+
+```yaml
+connection_mode: web
+```
+
+If omitted, plugin auto-detection is used.

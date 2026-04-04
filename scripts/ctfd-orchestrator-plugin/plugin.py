@@ -812,6 +812,11 @@ class OrchestrationPlugin:
             self.instance_tracker.add_instance(instance_data)
 
             remaining = max(0, expires - int(time.time()))
+            team_label = str(team_id)
+            if str(team_id).isdigit():
+                team_obj = Teams.query.get(int(team_id))
+                if team_obj and getattr(team_obj, "name", None):
+                    team_label = str(team_obj.name)
 
             access_methods = self._build_access_methods(challenge, url, port, stdout)
             if not access_methods:
@@ -1041,7 +1046,7 @@ class OrchestrationPlugin:
                 </div>
                 <div class=\"pill\">
                     <div class=\"k\">Team</div>
-                    <div class=\"v\">{html.escape(str(team_id))}</div>
+                    <div class=\"v\">{html.escape(team_label)}</div>
                 </div>
                 <div class=\"pill\">
                     <div class=\"k\">TTL Remaining</div>

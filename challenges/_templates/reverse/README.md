@@ -22,3 +22,24 @@ Use this template for Docker-based reverse engineering challenges.
 - Keep binaries and dependencies deterministic.
 - Document challenge objective and expected output in metadata.
 - Verify that runtime configuration matches distributed artifacts.
+
+## Access Metadata
+
+If challenge delivery is web-based, set:
+
+```yaml
+connection_mode: web
+```
+
+If challenge is terminal-based, set:
+
+```yaml
+connection_mode: ssh
+ssh_user: ctf
+```
+
+For static instruction-driven reverse tasks, set:
+
+```yaml
+connection_mode: instruction
+```
