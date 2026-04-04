@@ -9,6 +9,7 @@ Handles challenge instance lifecycle:
 """
 
 import logging
+import json
 import os
 import re
 import time
