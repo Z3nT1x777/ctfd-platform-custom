@@ -48,6 +48,14 @@ CTFd mapping:
 
 From CTFd admin account, create a token in profile/settings (token with challenge management scope).
 
+Helper script:
+
+```bash
+python scripts/get_ctfd_admin_token.py http://192.168.56.10
+```
+
+This helper is optional, but useful when you want to bootstrap or refresh the admin token used by the sync flow.
+
 ## Quick start
 
 ### 1. Dry run
@@ -76,6 +84,7 @@ python scripts/sync_challenges_ctfd.py \
   --ctfd-url http://192.168.56.10 \
   --api-token <YOUR_ADMIN_TOKEN> \
   --state hidden
+```
 
 ### 4. Optional: admin UI links instead of one-click launch
 
@@ -99,7 +108,6 @@ python scripts/sync_challenges_ctfd.py \
   --state visible \
   --connection-mode static-port \
   --instance-base-url http://192.168.56.10
-```
 ```
 
 ## Environment variables (optional)
