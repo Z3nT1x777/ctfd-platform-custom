@@ -27,6 +27,33 @@ class ChallengeSpec:
     port: int | None
 
 
+def extract_first_mapped_host_port(path: Path) -> int | None:
+    """Extract first host port from a challenge.yml ports mapping like '5000:5000'."""
+    in_ports_block = False
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.rstrip("\n")
+        stripped = line.strip()
+
+        if stripped.startswith("ports:"):
+            in_ports_block = True
+            continue
+
+        if in_ports_block:
+            # End block when indentation level goes back to a top-level key.
+            if line and not line.startswith(" "):
+                in_ports_block = False
+                continue
+
+            if stripped.startswith("-"):
+                item = stripped[1:].strip().strip('"').strip("'")
+                if ":" in item:
+                    host = item.split(":", 1)[0].strip()
+                    if host.isdigit():
+                        return int(host)
+
+    return None
+
+
 def _strip_quotes(value: str) -> str:
     value = value.strip()
     if (value.startswith('"') and value.endswith('"')) or (
@@ -97,7 +124,10 @@ def build_spec(challenge_dir: Path) -> ChallengeSpec:
 
     name = str(raw.get("name", "")).strip()
     category = str(raw.get("category", "misc")).strip() or "misc"
-    value = int(str(raw.get("value", "100")).strip() or "100")
+    value_raw = str(raw.get("value", "")).strip()
+    if not value_raw:
+        value_raw = str(raw.get("points", "100")).strip()
+    value = int(value_raw or "100")
     challenge_type = str(raw.get("type", "docker")).strip() or "docker"
     description = str(raw.get("description", "")).strip()
     flag = str(raw.get("flag", "")).strip()
@@ -111,6 +141,8 @@ def build_spec(challenge_dir: Path) -> ChallengeSpec:
     port_raw = str(raw.get("port", "")).strip()
     if port_raw.isdigit():
         port = int(port_raw)
+    else:
+        port = extract_first_mapped_host_port(yml_path)
 
     if not name:
         raise ValueError(f"Missing 'name' in {yml_path}")
@@ -208,11 +240,24 @@ def sync_challenge(
     existing: dict[str, dict[str, Any]],
     state: str,
     instance_base_url: str | None,
+    orchestrator_ui_url: str | None,
+    connection_mode: str,
     dry_run: bool,
 ) -> str:
     connection_info = ""
-    if spec.port is not None and instance_base_url:
+    if connection_mode == "static-port" and spec.port is not None and instance_base_url:
         connection_info = f"{instance_base_url.rstrip('/')}:{spec.port}"
+    elif connection_mode == "orchestrator-ui" and orchestrator_ui_url:
+        connection_info = (
+            f"Launch your team instance from: {orchestrator_ui_url.rstrip('/')} "
+            f"(challenge: {spec.name})"
+        )
+    elif connection_mode == "launch-link" and instance_base_url:
+        quoted = quote(spec.name, safe="")
+        connection_info = (
+            f"Launch your team instance: "
+            f"{instance_base_url.rstrip('/')}/plugins/orchestrator/launch?challenge={quoted}"
+        )
 
     challenge_payload: dict[str, Any] = {
         "name": spec.name,
@@ -290,6 +335,17 @@ def parse_args() -> argparse.Namespace:
         help="Base URL used to populate connection_info when challenge port is present.",
     )
     parser.add_argument(
+        "--orchestrator-ui-url",
+        default=os.environ.get("CTFD_ORCHESTRATOR_UI_URL", "http://192.168.56.10/plugins/orchestrator/ui"),
+        help="URL shown to players to launch a team instance from orchestrator UI.",
+    )
+    parser.add_argument(
+        "--connection-mode",
+        choices=["launch-link", "orchestrator-ui", "static-port"],
+        default="launch-link",
+        help="How to populate CTFd connection_info: one-click launch link, orchestrator UI link, or direct static port.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print planned actions without writing to CTFd.",
@@ -348,6 +404,8 @@ def main() -> int:
                 existing=existing,
                 state=args.state,
                 instance_base_url=args.instance_base_url,
+                orchestrator_ui_url=args.orchestrator_ui_url,
+                connection_mode=args.connection_mode,
                 dry_run=args.dry_run,
             )
             if action == "create":

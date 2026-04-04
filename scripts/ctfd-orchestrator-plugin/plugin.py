@@ -10,15 +10,14 @@ Handles challenge instance lifecycle:
 
 import logging
 import os
-import json
 import time
-from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any
+from urllib.parse import quote
 
 from flask import Blueprint, request, jsonify, render_template_string
-from CTFd.models import db, Challenges, Users, Teams
+from CTFd.models import Challenges, Teams
 from CTFd.utils.decorators import authed_only, require_team
-from sqlalchemy.exc import SQLAlchemyError
+from CTFd.utils.user import get_current_user
 
 from .webhook_handler import OrchestratorWebhookHandler
 from .instance_tracker import InstanceTracker
@@ -189,6 +188,48 @@ class OrchestrationPlugin:
         self._register_routes()
         logger.info("CTFd Orchestrator Plugin initialized")
 
+    def _resolve_team_id(self) -> str:
+        """Resolve current user's team id in a CTFd-version-tolerant way."""
+        user = get_current_user()
+        if not user:
+            return ""
+
+        team_id = getattr(user, "team_id", None)
+        if team_id:
+            return str(team_id)
+
+        team_obj = getattr(user, "team", None)
+        if team_obj and getattr(team_obj, "id", None):
+            return str(team_obj.id)
+
+        q_team = request.args.get("team_id")
+        if q_team:
+            return str(q_team)
+
+        return ""
+
+    def _is_admin_user(self) -> bool:
+        """Best-effort admin check across CTFd versions."""
+        user = get_current_user()
+        if not user:
+            return False
+
+        if bool(getattr(user, "admin", False)):
+            return True
+
+        user_type = str(getattr(user, "type", "")).lower()
+        if user_type == "admin":
+            return True
+
+        is_admin_attr = getattr(user, "is_admin", None)
+        if callable(is_admin_attr):
+            try:
+                return bool(is_admin_attr())
+            except Exception:
+                return False
+
+        return False
+
     def _register_routes(self):
         """Register plugin endpoints."""
         bp = Blueprint("orchestrator", __name__, url_prefix="/plugins/orchestrator")
@@ -196,7 +237,7 @@ class OrchestrationPlugin:
         @bp.route("/start", methods=["POST"])
         @authed_only
         @require_team
-        def start_instance(team_id=None):
+        def start_instance():
             """
             Start a challenge instance for current team.
             
@@ -223,6 +264,10 @@ class OrchestrationPlugin:
                 data = request.get_json() or {}
                 challenge_id = data.get("challenge_id")
                 ttl_min = int(data.get("ttl_min", 60))
+                team_id = self._resolve_team_id()
+
+                if not team_id:
+                    return jsonify({"ok": False, "error": "team_not_found"}), 401
 
                 if not challenge_id:
                     return (
@@ -247,23 +292,6 @@ class OrchestrationPlugin:
                         ),
                         404,
                     )
-
-                # Get team_id from session (CTFd provides this)
-                if not team_id:
-                    team_obj = Teams.query.filter_by(
-                        id=request.args.get("team_id")
-                    ).first()
-                    if not team_obj:
-                        return (
-                            jsonify(
-                                {
-                                    "ok": False,
-                                    "error": "team_not_found",
-                                }
-                            ),
-                            401,
-                        )
-                    team_id = team_obj.id
 
                 # Check if orchestrator enabled for this challenge
                 if not self._is_orchestrated_challenge(challenge):
@@ -370,11 +398,15 @@ class OrchestrationPlugin:
         @bp.route("/stop", methods=["POST"])
         @authed_only
         @require_team
-        def stop_instance(team_id=None):
+        def stop_instance():
             """Stop a running challenge instance."""
             try:
                 data = request.get_json() or {}
                 challenge_id = data.get("challenge_id")
+                team_id = self._resolve_team_id()
+
+                if not team_id:
+                    return jsonify({"ok": False, "error": "team_not_found"}), 401
 
                 if not challenge_id:
                     return (
@@ -442,9 +474,13 @@ class OrchestrationPlugin:
         @bp.route("/instances", methods=["GET"])
         @authed_only
         @require_team
-        def list_instances(team_id=None):
+        def list_instances():
             """List all active instances for current team."""
             try:
+                team_id = self._resolve_team_id()
+                if not team_id:
+                    return jsonify({"ok": False, "error": "team_not_found"}), 401
+
                 instances = self.instance_tracker.get_team_instances(team_id)
 
                 # Add remaining time to each
@@ -482,7 +518,7 @@ class OrchestrationPlugin:
         @bp.route("/challenges", methods=["GET"])
         @authed_only
         @require_team
-        def list_challenges(team_id=None):
+        def list_challenges():
             """List available challenges for quick start UI."""
             items = Challenges.query.order_by(Challenges.id.asc()).all()
             return jsonify(
@@ -511,11 +547,83 @@ class OrchestrationPlugin:
 
             return jsonify({"ok": True, "rows": rows})
 
+        @bp.route("/launch", methods=["GET"])
+        @authed_only
+        @require_team
+        def launch_from_challenge():
+            """One-click launch endpoint for players (default TTL=60, no knobs)."""
+            team_id = self._resolve_team_id()
+            if not team_id:
+                return "Team required", 401
+
+            challenge_name = str(request.args.get("challenge", "")).strip()
+            challenge_id = request.args.get("challenge_id")
+            ttl_min_raw = str(request.args.get("ttl_min", "60")).strip()
+            ttl_min = int(ttl_min_raw) if ttl_min_raw.isdigit() else 60
+
+            challenge = None
+            if challenge_id and str(challenge_id).isdigit():
+                challenge = Challenges.query.get(int(challenge_id))
+            elif challenge_name:
+                challenge = Challenges.query.filter_by(name=challenge_name).first()
+
+            if not challenge:
+                return "Challenge not found", 404
+
+            active_count = self.instance_tracker.count_active_instances(team_id)
+            max_active = int(os.getenv("ORCHESTRATOR_TEAM_MAX_ACTIVE", 3))
+            if active_count >= max_active:
+                return (
+                    f"Quota exceeded: {active_count}/{max_active} active instances for your team.",
+                    409,
+                )
+
+            result = self.orchestrator_handler.start_instance(
+                challenge_name=challenge.name,
+                team_id=str(team_id),
+                ttl_min=ttl_min,
+            )
+
+            if not result.get("ok"):
+                return f"Launch failed: {result.get('error', 'orchestrator_error')}", 500
+
+            instance_data = {
+                "team_id": str(team_id),
+                "challenge_id": challenge.id,
+                "challenge_name": challenge.name,
+                "url": result.get("url"),
+                "port": result.get("port"),
+                "expire_epoch": result.get("expire_epoch"),
+            }
+            self.instance_tracker.add_instance(instance_data)
+
+            url = result.get("url") or ""
+            expires = int(result.get("expire_epoch", int(time.time())))
+            remaining = max(0, expires - int(time.time()))
+
+            html = f"""
+<!doctype html>
+<html>
+<head><meta charset=\"utf-8\" /><title>Challenge Launched</title></head>
+<body style=\"font-family: system-ui, sans-serif; margin: 24px;\">
+  <h2>Instance launched</h2>
+  <p><b>Challenge:</b> {challenge.name}</p>
+  <p><b>Team:</b> {team_id}</p>
+  <p><b>TTL remaining:</b> {remaining} seconds</p>
+  <p><a href=\"{url}\" target=\"_blank\">Open your challenge instance</a></p>
+  <p><a href=\"/challenges\">Back to challenges</a></p>
+</body>
+</html>
+"""
+            return html
+
         @bp.route("/ui", methods=["GET"])
         @authed_only
         @require_team
-        def ops_ui(team_id=None):
-            """Simple CTFd-side operations UI with start/stop and live TTL."""
+        def ops_ui():
+            """Admin/dev operations UI with start/stop and live TTL."""
+            if not self._is_admin_user():
+                return "Forbidden", 403
             return render_template_string(UI_TEMPLATE)
 
         self.app.register_blueprint(bp)
