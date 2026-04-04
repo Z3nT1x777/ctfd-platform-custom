@@ -642,7 +642,7 @@ class OrchestrationPlugin:
                     500,
                 )
 
-                        html = f"""
+            html = f"""
 <!doctype html>
 <html lang=\"en\">
 <head>
