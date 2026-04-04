@@ -17,3 +17,15 @@ Use this template for `static` OSINT challenges that do not require container ru
 - Ensure all provided material is reproducible and versioned.
 - Keep challenge instructions precise and verification criteria explicit.
 - Validate challenge structure before commit.
+
+## Access Metadata
+
+OSINT challenges should stay non-orchestrated/static:
+
+```yaml
+type: static
+connection_mode: instruction
+access_instructions: "Collect evidence from provided artifacts and submit flag{...}"
+```
+
+This prevents showing web launch links for instruction-only challenges.

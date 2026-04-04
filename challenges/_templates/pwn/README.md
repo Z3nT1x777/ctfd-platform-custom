@@ -23,3 +23,19 @@ Use this template for Docker-based binary exploitation challenges.
 - Pin toolchain and runtime package versions when possible.
 - Keep challenge state resettable between runs.
 - Ensure challenge metadata reflects architecture and difficulty.
+
+## Access Metadata
+
+Most pwn challenges are terminal-based. Prefer explicit metadata:
+
+```yaml
+connection_mode: ssh
+ssh_user: ctf
+```
+
+If challenge does not expose SSH and requires custom steps, use:
+
+```yaml
+connection_mode: instruction
+access_instructions: "Run nc <host> <port> then follow prompt"
+```

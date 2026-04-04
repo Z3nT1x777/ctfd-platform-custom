@@ -30,3 +30,17 @@ Always validate generated challenges before opening a pull request:
 
 - Windows: `./scripts/validate-challenge.ps1 -Path challenges/<name>`
 - Linux/macOS: `bash ./scripts/validate-challenge.sh challenges/<name>`
+
+## Access Mode Metadata (Recommended)
+
+To keep front-end launch behavior coherent across mixed challenge types,
+you can add optional metadata in `challenge.yml`:
+
+- `connection_mode: web|ssh|instruction|auto`
+- `ssh_user: <username>` for SSH command rendering
+- `access_instructions: <text>` for non-web/non-ssh instructions
+
+The plugin uses runtime signals + these hints to render either:
+- a web button,
+- SSH commands to copy,
+- or instruction text.
