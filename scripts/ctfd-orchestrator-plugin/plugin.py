@@ -1,4 +1,4 @@
-"""
+﻿"""
 CTFd Orchestrator Integration Plugin
 
 Handles challenge instance lifecycle:
@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
-from flask import Blueprint, request, jsonify, render_template_string
+from flask import Blueprint, request, jsonify, render_template_string, redirect
 from CTFd.models import Challenges, Teams, db
 from CTFd.utils.decorators import authed_only, require_team
 from CTFd.utils.user import get_current_user
@@ -31,51 +31,163 @@ logger = logging.getLogger("ctfd.orchestrator_plugin")
 
 UI_TEMPLATE = """
 <!doctype html>
-<html>
+<html lang=\"en\">
 <head>
     <meta charset=\"utf-8\" />
     <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
-    <title>CTFd Instance Ops</title>
+    <title>Team Instances Dashboard</title>
     <style>
-        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .card { border: 1px solid #ddd; border-radius: 8px; padding: 14px; }
-        .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-        input, select, button { padding: 8px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border-bottom: 1px solid #eee; text-align: left; padding: 8px; }
-        code { background: #f6f6f6; padding: 2px 6px; border-radius: 4px; }
-        @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+        :root {
+            --bg-a: #06111f;
+            --bg-b: #0d2135;
+            --panel: rgba(16, 29, 47, 0.92);
+            --panel-2: rgba(22, 39, 59, 0.96);
+            --line: rgba(255,255,255,0.08);
+            --text: #e9f1ff;
+            --muted: #9fb0c6;
+            --green: #2cd66b;
+            --red: #ef4444;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(900px 500px at 10% 0%, rgba(44,214,107,0.18), transparent 60%),
+                radial-gradient(800px 500px at 95% 110%, rgba(36,74,122,0.55), transparent 60%),
+                linear-gradient(145deg, var(--bg-a), var(--bg-b));
+            padding: 24px 18px 36px;
+        }
+        .wrap { max-width: 1240px; margin: 0 auto; }
+        .hero {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: flex-start;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+        h1 { margin: 0 0 10px; font-size: clamp(2rem, 4vw, 3.1rem); }
+        .sub { margin: 0; color: var(--muted); font-size: 1.05rem; }
+        .top-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+        .flash {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            font-weight: 600;
+            display: none;
+        }
+        .flash.ok {
+            display: block;
+            color: #d8ffe7;
+            background: rgba(44, 214, 107, 0.18);
+            border-color: rgba(44, 214, 107, 0.38);
+        }
+        .flash.err {
+            display: block;
+            color: #ffdfe1;
+            background: rgba(239, 68, 68, 0.16);
+            border-color: rgba(239, 68, 68, 0.38);
+        }
+        .btn {
+            border: 1px solid var(--line);
+            background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+            color: var(--text);
+            border-radius: 14px;
+            padding: 14px 18px;
+            font-weight: 700;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 152px;
+            cursor: pointer;
+        }
+        .btn.refresh { background: linear-gradient(90deg, #1e3556, #223e64); }
+        .grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            padding: 18px;
+            box-shadow: 0 18px 50px rgba(0,0,0,0.32);
+        }
+        .panel h2 { margin: 0 0 12px; font-size: 1.35rem; }
+        .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        .inst {
+            background: var(--panel-2);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 16px;
+            min-height: 240px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .inst-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+        .name { margin: 0; font-size: 1.35rem; }
+        .state { color: #0a1d10; background: #41d37a; border-radius: 999px; padding: 8px 14px; font-weight: 800; }
+        .state.down { color: #fff; background: var(--red); }
+        .ttlbox { border: 1px solid var(--line); border-radius: 14px; padding: 12px; background: rgba(255,255,255,0.03); }
+        .k { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+        .v { font-size: 1.25rem; font-weight: 800; margin-top: 6px; }
+        .tags { display: flex; gap: 8px; flex-wrap: wrap; }
+        .tag { border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; color: var(--muted); }
+        .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: auto; }
+        .action { border: 0; border-radius: 14px; padding: 13px 16px; font-weight: 800; cursor: pointer; }
+        .open { background: linear-gradient(90deg, #30c36a, #0f9f4b); color: #06170f; }
+        .extend { background: linear-gradient(90deg, #223b62, #2f527f); color: var(--text); }
+        .kill { background: linear-gradient(90deg, #ef4444, #c81e1e); color: #fff; }
+        .leader {
+            width: 100%;
+            border-collapse: collapse;
+            overflow: hidden;
+            border-radius: 14px;
+        }
+        .leader th, .leader td {
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+        }
+        .leader th { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+        .leader tr:last-child td { border-bottom: 0; }
+        @media (max-width: 980px) {
+            .grid { grid-template-columns: 1fr; }
+            .cards { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
-    <h1>CTFd Player Instance Control</h1>
-    <p>Start or stop team instances, see TTL countdown, and follow live team activity.</p>
-    <div class=\"grid\">
-        <div class=\"card\">
-            <h3>Instance Controls</h3>
-            <div class=\"row\">
-                <select id=\"challenge\"></select>
-                <input id=\"ttl\" type=\"number\" value=\"60\" min=\"5\" max=\"240\" />
+    <div class=\"wrap\">
+        <div class=\"hero\">
+            <div>
+                <h1>Team Instances Dashboard</h1>
+                <p class=\"sub\">Team: {{ team_name|e }}. View all running containers, uptime, and stop them from one place.</p>
+                <div id=\"actionMessage\" class=\"flash{% if initial_message %} {{ initial_kind }}{% endif %}\">{{ initial_message|e }}</div>
             </div>
-            <div class=\"row\">
-                <button id=\"startBtn\">Start Challenge</button>
-                <button id=\"stopBtn\">Stop Challenge</button>
-                <button id=\"refreshBtn\">Refresh</button>
+            <div class=\"top-actions\">
+                <a class=\"btn\" href=\"/challenges\">Back to Challenges</a>
+                <a class=\"btn refresh\" href=\"javascript:void(0)\" onclick=\"refreshAll()\">Refresh</a>
             </div>
-            <div id=\"message\"></div>
-            <h4>Team Active Instances</h4>
-            <table>
-                <thead><tr><th>Challenge</th><th>URL</th><th>TTL</th></tr></thead>
-                <tbody id=\"instances\"></tbody>
-            </table>
         </div>
-        <div class=\"card\">
-            <h3>Live Activity Leaderboard</h3>
-            <table>
-                <thead><tr><th>Rank</th><th>Team</th><th>Active</th><th>Starts</th><th>Stops</th><th>Expired</th></tr></thead>
-                <tbody id=\"leaderboard\"></tbody>
-            </table>
+
+        <div class=\"grid\">
+            <section class=\"panel\">
+                <h2>Team Active Instances</h2>
+                <div id=\"instances\" class=\"cards\"></div>
+            </section>
+
+            <section class=\"panel\">
+                <h2>Live Activity Leaderboard</h2>
+                <table class=\"leader\">
+                    <thead><tr><th>Rank</th><th>Team</th><th>Active</th><th>Starts</th><th>Stops</th><th>Expired</th></tr></thead>
+                    <tbody id=\"leaderboard\"></tbody>
+                </table>
+            </section>
         </div>
     </div>
 
@@ -86,68 +198,111 @@ UI_TEMPLATE = """
             const s = sec % 60;
             return `${m}m ${s}s`;
         };
+        const actionMessage = document.getElementById('actionMessage');
 
-        async function fetchChallenges() {
-            const res = await fetch('/plugins/orchestrator/challenges');
-            const data = await res.json();
-            const sel = document.getElementById('challenge');
-            sel.innerHTML = '';
-            (data.challenges || []).forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c.id;
-                opt.textContent = `${c.id} - ${c.name}`;
-                sel.appendChild(opt);
+        function showMessage(kind, text) {
+            actionMessage.className = `flash ${kind}`;
+            actionMessage.textContent = text;
+        }
+
+        function csrfHeaders() {
+            const nonce = (window.init && window.init.csrfNonce) ? window.init.csrfNonce : '';
+            return nonce ? { 'CSRF-Token': nonce, 'X-CSRF-Token': nonce } : {};
+        }
+
+        async function callInstanceAction(path, payload) {
+            try {
+                const res = await fetch(path, {
+                    method: 'POST',
+                    cache: 'no-store',
+                    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+                    body: JSON.stringify(payload)
+                });
+
+                const raw = await res.text();
+                let data = {};
+                try {
+                    data = raw ? JSON.parse(raw) : {};
+                } catch (_e) {
+                    data = {
+                        ok: false,
+                        error: `http_${res.status}`,
+                        detail: raw ? raw.slice(0, 240) : `HTTP ${res.status}`,
+                    };
+                }
+
+                if (!res.ok) {
+                    data.ok = false;
+                    if (!data.error) {
+                        data.error = `http_${res.status}`;
+                    }
+                    if (!data.detail) {
+                        data.detail = `HTTP ${res.status}`;
+                    }
+                }
+
+                return data;
+            } catch (err) {
+                return {
+                    ok: false,
+                    error: 'network_error',
+                    detail: String((err && err.message) || err || 'network_error'),
+                };
+            }
+        }
+
+        async function stopInstance(ref, name) {
+            return callInstanceAction('/plugins/orchestrator/stop', {
+                challenge_id: (String(ref || '').match(/^\d+$/) ? Number(ref) : undefined),
+                challenge_name: name || String(ref || ''),
             });
         }
 
-        async function startInstance() {
-            const challenge_id = Number(document.getElementById('challenge').value);
-            const ttl_min = Number(document.getElementById('ttl').value || 60);
-            const res = await fetch('/plugins/orchestrator/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ challenge_id, ttl_min })
+        async function extendInstance(ref, name) {
+            return callInstanceAction('/plugins/orchestrator/extend', {
+                challenge_id: (String(ref || '').match(/^\d+$/) ? Number(ref) : undefined),
+                challenge_name: name || String(ref || ''),
+                ttl_min: 30,
             });
-            const data = await res.json();
-            document.getElementById('message').textContent = data.ok
-                ? `Instance started at ${data.instance.url}`
-                : `Error: ${data.error || 'unknown'}`;
-            await refreshInstances();
-            await refreshLeaderboard();
-        }
-
-        async function stopInstance() {
-            const challenge_id = Number(document.getElementById('challenge').value);
-            const res = await fetch('/plugins/orchestrator/stop', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ challenge_id })
-            });
-            const data = await res.json();
-            document.getElementById('message').textContent = data.ok
-                ? 'Instance stopped'
-                : `Error: ${data.error || 'unknown'}`;
-            await refreshInstances();
-            await refreshLeaderboard();
         }
 
         async function refreshInstances() {
-            const res = await fetch('/plugins/orchestrator/instances');
+            const res = await fetch('/plugins/orchestrator/instances', { cache: 'no-store' });
             const data = await res.json();
             const body = document.getElementById('instances');
             body.innerHTML = '';
-            (data.instances || []).forEach(inst => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${inst.challenge_name || '-'}</td><td><a href="${inst.url}" target="_blank">${inst.url}</a></td><td>${fmt(inst.ttl_remaining_sec || 0)}</td>`;
-                body.appendChild(tr);
+
+            (data.instances || []).forEach((inst) => {
+                const challengeRef = inst.challenge_ref || inst.challenge_name || String(inst.challenge_id || '');
+                const ttlSeconds = Number(inst.ttl_remaining_sec || 0);
+
+                const card = document.createElement('div');
+                card.className = 'inst';
+                card.innerHTML = `
+                    <div class=\"inst-head\">
+                        <h3 class=\"name\">${inst.challenge_name || '-'}</h3>
+                        <span class=\"state ${ttlSeconds > 0 ? '' : 'down'}\">${ttlSeconds > 0 ? 'UP' : 'DOWN'}</span>
+                    </div>
+                    <p style=\"margin:0;color:var(--muted);\">${ttlSeconds > 0 ? 'Container UP and tracked for your team.' : 'Container is not running right now.'}</p>
+                    <div class=\"ttlbox\"><div class=\"k\">TTL Remaining</div><div class=\"v\">${fmt(ttlSeconds)}</div></div>
+                    <div class=\"tags\"><span class=\"tag\">${inst.url || '-'}</span></div>
+                    <div class=\"actions\">
+                        <a class=\"action open\" href=\"${inst.url || '#'}\" target=\"_blank\" rel=\"noopener\">Open Web</a>
+                        <a class=\"action extend\" href=\"/plugins/orchestrator/extend-ui?challenge_ref=${encodeURIComponent(challengeRef)}\">Add 30m</a>
+                        <a class=\"action kill\" href=\"/plugins/orchestrator/stop-ui?challenge_ref=${encodeURIComponent(challengeRef)}\">Kill Container</a>
+                    </div>
+                `;
+
+                body.appendChild(card);
             });
         }
 
         async function refreshLeaderboard() {
-            const res = await fetch('/plugins/orchestrator/leaderboard/live');
+            const res = await fetch('/plugins/orchestrator/leaderboard/live', { cache: 'no-store' });
             const data = await res.json();
             const body = document.getElementById('leaderboard');
             body.innerHTML = '';
+
             (data.rows || []).forEach((row, idx) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `<td>${idx + 1}</td><td>${row.team_name || row.team_id}</td><td>${row.active_instances}</td><td>${row.starts_total}</td><td>${row.stops_total}</td><td>${row.expired_total}</td>`;
@@ -155,20 +310,28 @@ UI_TEMPLATE = """
             });
         }
 
-        document.getElementById('startBtn').addEventListener('click', startInstance);
-        document.getElementById('stopBtn').addEventListener('click', stopInstance);
-        document.getElementById('refreshBtn').addEventListener('click', async () => {
+        async function refreshAll() {
             await refreshInstances();
             await refreshLeaderboard();
-        });
+        }
 
-        fetchChallenges();
-        refreshInstances();
-        refreshLeaderboard();
-        setInterval(async () => {
-            await refreshInstances();
-            await refreshLeaderboard();
-        }, 10000);
+        refreshAll();
+        setInterval(refreshAll, 10000);
+
+        // Smooth countdown between server refreshes so TTL never looks frozen.
+        setInterval(() => {
+            document.querySelectorAll('#instances .inst .ttlbox .v').forEach((node) => {
+                const text = node.textContent || '';
+                const match = text.match(/^(\d+)m\s+(\d+)s$/);
+                if (!match) return;
+                let total = Number(match[1]) * 60 + Number(match[2]);
+                if (total <= 0) return;
+                total -= 1;
+                const m = Math.floor(total / 60);
+                const s = total % 60;
+                node.textContent = `${m}m ${s}s`;
+            });
+        }, 1000);
     </script>
 </body>
 </html>
@@ -267,6 +430,93 @@ class OrchestrationPlugin:
             player_host=os.getenv("ORCHESTRATOR_PLAYER_HOST", "192.168.56.10"),
             default_ssh_user=os.getenv("ORCHESTRATOR_SSH_USER", "ctf"),
         )
+
+    def _parse_status_rows(self, stdout: str) -> List[Dict[str, str]]:
+        rows: List[Dict[str, str]] = []
+        for line in (stdout or "").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+
+            row: Dict[str, str] = {}
+            for pair in line.split():
+                if "=" not in pair:
+                    continue
+                key, value = pair.split("=", 1)
+                row[key.lower()] = value
+
+            if row:
+                rows.append(row)
+
+        return rows
+
+    def _current_status_rows(self) -> List[Dict[str, str]]:
+        try:
+            result = self.orchestrator_handler.get_status()
+        except Exception:
+            logger.exception("Failed to query orchestrator status")
+            return []
+
+        if not result.get("ok"):
+            return []
+
+        return self._parse_status_rows(str(result.get("stdout", "")))
+
+    def _find_status_row(self, team_id: str, challenge_name: str) -> Optional[Dict[str, str]]:
+        target = normalize_slug(challenge_name)
+        for row in self._current_status_rows():
+            if str(row.get("team", "")) != str(team_id):
+                continue
+
+            row_target = normalize_slug(str(row.get("challenge") or row.get("project") or ""))
+            if row_target == target:
+                return row
+
+        return None
+
+    def _build_launch_description(self, challenge, access_methods: List[Dict[str, str]]) -> str:
+        methods = {str(m.get("type", "")).strip().lower() for m in access_methods}
+        if "web" in methods:
+            return "Open the web service below and use the exposed interface for this challenge."
+        if "ssh" in methods:
+            return "Use one of the SSH commands below to connect to the instance."
+
+        hint = self._challenge_access_hint(challenge)
+        instruction = str(hint.get("instructions", "") or "").strip()
+        if instruction:
+            return instruction
+
+        return "Follow the challenge instructions below to access the instance."
+
+    def _challenge_matches_reference(self, challenge, reference: str) -> bool:
+        ref = str(reference or "").strip()
+        if not ref:
+            return False
+
+        if ref.isdigit() and getattr(challenge, "id", None) is not None:
+            return int(ref) == int(challenge.id)
+
+        return normalize_slug(str(getattr(challenge, "name", "") or "")) == normalize_slug(ref)
+
+    def _resolve_challenge_from_reference(self, reference: Any):
+        ref = str(reference or "").strip()
+        if not ref:
+            return None
+
+        if ref.isdigit():
+            challenge = Challenges.query.get(int(ref))
+            if challenge:
+                return challenge
+
+        normalized = normalize_slug(ref)
+        if not normalized:
+            return None
+
+        for challenge in Challenges.query.all():
+            if self._challenge_matches_reference(challenge, ref):
+                return challenge
+
+        return None
 
     def _resolve_team_id(self) -> str:
         """Resolve current user's team id in a CTFd-version-tolerant way."""
@@ -496,23 +746,24 @@ class OrchestrationPlugin:
             try:
                 data = request.get_json() or {}
                 challenge_id = data.get("challenge_id")
+                challenge_ref = data.get("challenge_name")
                 team_id = self._resolve_team_id()
 
                 if not team_id:
                     return jsonify({"ok": False, "error": "team_not_found"}), 401
 
-                if not challenge_id:
+                if not challenge_id and not challenge_ref:
                     return (
                         jsonify(
                             {
                                 "ok": False,
-                                "error": "missing_challenge_id",
+                                "error": "missing_challenge_reference",
                             }
                         ),
                         400,
                     )
 
-                challenge = Challenges.query.get(challenge_id)
+                challenge = self._resolve_challenge_from_reference(challenge_id or challenge_ref)
                 if not challenge:
                     return (
                         jsonify(
@@ -543,7 +794,7 @@ class OrchestrationPlugin:
                     )
 
                 # Remove from tracker
-                self.instance_tracker.remove_instance(team_id, challenge_id)
+                self.instance_tracker.remove_instance(team_id, int(challenge.id))
 
                 logger.info(
                     f"Instance stopped: team={team_id}, challenge={challenge.name}"
@@ -564,6 +815,105 @@ class OrchestrationPlugin:
                     500,
                 )
 
+        @bp.route("/extend", methods=["POST"])
+        @authed_only
+        @require_team
+        def extend_instance():
+            """Extend a running challenge instance by 30 minutes."""
+            try:
+                data = request.get_json() or {}
+                challenge_id = data.get("challenge_id")
+                challenge_ref = data.get("challenge_name")
+                team_id = self._resolve_team_id()
+
+                if not team_id:
+                    return jsonify({"ok": False, "error": "team_not_found"}), 401
+
+                if not challenge_id and not challenge_ref:
+                    return jsonify({"ok": False, "error": "missing_challenge_reference"}), 400
+
+                challenge = self._resolve_challenge_from_reference(challenge_id or challenge_ref)
+                if not challenge:
+                    return jsonify({"ok": False, "error": "challenge_not_found"}), 404
+
+                # Business rule: a single instance cannot exceed 60 minutes total TTL.
+                add_seconds = 30 * 60
+                max_seconds = 60 * 60
+                current_ttl = 0
+
+                row = self._find_status_row(str(team_id), challenge.name)
+                if row and str(row.get("state", "")).strip().lower() == "running":
+                    current_ttl = max(0, int(row.get("ttl_remaining_sec", 0) or 0))
+                else:
+                    for inst in self.instance_tracker.get_team_instances(str(team_id)):
+                        if int(inst.get("challenge_id", -1)) == int(challenge.id):
+                            current_ttl = max(0, int(inst.get("expire_epoch", 0) or 0) - int(time.time()))
+                            break
+
+                if current_ttl <= 0:
+                    return (
+                        jsonify(
+                            {
+                                "ok": False,
+                                "error": "instance_not_running",
+                                "detail": "Cannot add time because the instance is not running.",
+                            }
+                        ),
+                        409,
+                    )
+
+                if current_ttl + add_seconds > max_seconds:
+                    return (
+                        jsonify(
+                            {
+                                "ok": False,
+                                "error": "ttl_exceeds_max_1h",
+                                "detail": "Cannot exceed 1 hour total TTL for one instance.",
+                                "ttl_remaining_sec": current_ttl,
+                                "max_ttl_sec": max_seconds,
+                            }
+                        ),
+                        400,
+                    )
+
+                result = self.orchestrator_handler.extend_instance(
+                    challenge_name=challenge.name,
+                    team_id=str(team_id),
+                    ttl_min=30,
+                )
+
+                if not result.get("ok"):
+                    return (
+                        jsonify(
+                            {
+                                "ok": False,
+                                "error": result.get("error", "orchestrator_error"),
+                            }
+                        ),
+                        500,
+                    )
+
+                expire_epoch = int(result.get("expire_epoch", 0) or 0)
+                if expire_epoch:
+                    self.instance_tracker.update_instance_expire(team_id, int(challenge.id), expire_epoch)
+
+                return jsonify({
+                    "ok": True,
+                    "expire_epoch": expire_epoch,
+                    "ttl_remaining_sec": max(0, expire_epoch - int(time.time())) if expire_epoch else 0,
+                })
+
+            except Exception as e:
+                logger.exception(f"Error in extend_instance: {e}")
+                return (
+                    jsonify({
+                        "ok": False,
+                        "error": "internal_error",
+                        "detail": str(e),
+                    }),
+                    500,
+                )
+
         @bp.route("/instances", methods=["GET"])
         @authed_only
         @require_team
@@ -574,15 +924,40 @@ class OrchestrationPlugin:
                 if not team_id:
                     return jsonify({"ok": False, "error": "team_not_found"}), 401
 
-                instances = self.instance_tracker.get_team_instances(team_id)
+                instances: List[Dict[str, Any]] = []
+                player_host = os.getenv("ORCHESTRATOR_PLAYER_HOST", "192.168.56.10")
+                for row in self._current_status_rows():
+                    if str(row.get("team", "")) != str(team_id):
+                        continue
 
-                # Add remaining time to each
-                now = int(time.time())
-                for inst in instances:
-                    inst["ttl_remaining_sec"] = max(
-                        0, inst.get("expire_epoch", 0) - now
+                    state = str(row.get("state", "")).strip().lower()
+                    if state and state != "running":
+                        continue
+
+                    challenge_name = str(row.get("challenge") or row.get("project") or "").strip()
+                    challenge_obj = None
+                    if challenge_name:
+                        for ch in Challenges.query.all():
+                            if normalize_slug(ch.name) == normalize_slug(challenge_name):
+                                challenge_obj = ch
+                                break
+
+                    port = int(row.get("port", 0) or 0)
+                    ttl_remaining_sec = max(0, int(row.get("ttl_remaining_sec", 0) or 0))
+                    challenge_ref = str(challenge_obj.id if challenge_obj else challenge_name)
+                    instances.append(
+                        {
+                            "team_id": str(team_id),
+                            "challenge_id": challenge_obj.id if challenge_obj else 0,
+                            "challenge_name": challenge_obj.name if challenge_obj else challenge_name,
+                            "challenge_ref": challenge_ref,
+                            "port": port,
+                            "url": f"http://{player_host}:{port}" if port else "",
+                            "state": state or "running",
+                            "ttl_remaining_sec": ttl_remaining_sec,
+                            "expired": ttl_remaining_sec <= 0,
+                        }
                     )
-                    inst["expired"] = inst["ttl_remaining_sec"] <= 0
 
                 return (
                     jsonify(
@@ -652,11 +1027,7 @@ class OrchestrationPlugin:
 
             challenge_name = str(request.args.get("challenge", "")).strip()
             challenge_id = request.args.get("challenge_id")
-            ttl_min_raw = str(request.args.get("ttl_min", "60")).strip()
-            ttl_min = int(ttl_min_raw) if ttl_min_raw.isdigit() else 60
-
-            if ttl_min < 5 or ttl_min > 240:
-                return "Invalid timer: ttl_min must be between 5 and 240 minutes", 400
+            ttl_min = 60
 
             challenge = None
             if challenge_id and str(challenge_id).isdigit():
@@ -738,10 +1109,27 @@ class OrchestrationPlugin:
 
             remaining = max(0, expires - int(time.time()))
             team_label = str(team_id)
-            if str(team_id).isdigit():
-                team_obj = Teams.query.get(int(team_id))
-                if team_obj and getattr(team_obj, "name", None):
-                    team_label = str(team_obj.name)
+            # Try to get team name from current user's team object first (most direct)
+            try:
+                user = get_current_user()
+                if user:
+                    user_team = getattr(user, "team", None)
+                    if user_team:
+                        team_name = getattr(user_team, "name", None)
+                        if team_name:
+                            team_label = str(team_name)
+            except Exception:
+                pass
+            # Fallback: query Teams if not found via user
+            if team_label == str(team_id) and str(team_id).isdigit():
+                try:
+                    team_obj = Teams.query.get(int(team_id))
+                    if team_obj:
+                        team_name = getattr(team_obj, "name", None)
+                        if team_name:
+                            team_label = str(team_name)
+                except Exception:
+                    pass
 
             access_methods = self._build_access_methods(challenge, url, port, stdout)
             if not access_methods:
@@ -753,6 +1141,21 @@ class OrchestrationPlugin:
 
             web_method = next((m for m in access_methods if m.get("type") == "web"), None)
             redirect_url = web_method.get("value", "") if web_method else ""
+            launch_description = self._build_launch_description(challenge, access_methods)
+
+            status_row = self._find_status_row(str(team_id), challenge.name)
+            status_running = bool(
+                status_row and str(status_row.get("state", "")).strip().lower() == "running"
+            )
+            status_ttl_remaining = (
+                int(status_row.get("ttl_remaining_sec", 0) or 0) if status_row else max(0, expires - int(time.time()))
+            )
+            if not status_running and status_row is None:
+                status_running = bool(url and not url.endswith(":0") and expires > int(time.time()))
+            status_title = "Instance launched" if status_running else "Instance down"
+            status_class = "ok" if status_running else "bad"
+            if not status_running:
+                status_ttl_remaining = 0
 
             method_blocks = []
             for idx, method in enumerate(access_methods):
@@ -812,6 +1215,7 @@ class OrchestrationPlugin:
             --text: #ecf2ff;
             --muted: #a8b4ca;
             --ok: #23c47e;
+            --bad: #ef4444;
             --btn-a: #16a34a;
             --btn-b: #22c55e;
             --btn-secondary-a: #1e293b;
@@ -859,6 +1263,11 @@ class OrchestrationPlugin:
             background: var(--ok);
             box-shadow: 0 0 0 8px var(--ring);
             animation: pulse 1.8s infinite ease-in-out;
+        }}
+
+        .dot.bad {{
+            background: var(--bad);
+            box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.22);
         }}
 
         @keyframes pulse {{
@@ -959,8 +1368,8 @@ class OrchestrationPlugin:
 <body>
     <section class=\"card\">
         <header class=\"head\">
-            <span class=\"dot\" aria-hidden=\"true\"></span>
-            <h1 class=\"title\">Instance launched</h1>
+            <span class=\"dot {status_class}\" id=\"statusDot\" aria-hidden=\"true\"></span>
+            <h1 class=\"title\" id=\"statusTitle\">{status_title}</h1>
         </header>
 
         <div class=\"body\">
@@ -975,17 +1384,17 @@ class OrchestrationPlugin:
                 </div>
                 <div class=\"pill\">
                     <div class=\"k\">TTL Remaining</div>
-                    <div class=\"v\">{remaining} seconds</div>
+                    <div class=\"v\" id=\"ttlValue\">{status_ttl_remaining} seconds</div>
                 </div>
             </div>
 
-            <p class=\"note\">Access is generated from runtime signals and challenge metadata. Commands are copy-ready for Linux and Windows terminals.</p>
+            <p class=\"note\" id=\"launchDescription\">{html.escape(launch_description)}</p>
 
             {''.join(method_blocks)}
 
             <a class=\"btn btn-secondary\" href=\"/challenges\">Back to Challenges</a>
 
-            <p class=\"tiny\" id=\"autoLine\">Auto-redirecting in <span id=\"countdown\">8</span>s... <a href=\"#\" id=\"stayHere\" style=\"color:#9ad1ff; margin-left:6px;\">stay here</a></p>
+            <p class=\"tiny\" id=\"autoLine\">Auto-redirecting in <span id=\"countdown\">60</span>s... <a href=\"#\" id=\"stayHere\" style=\"color:#9ad1ff; margin-left:6px;\">stay here</a></p>
         </div>
     </section>
 
@@ -995,11 +1404,40 @@ class OrchestrationPlugin:
             navigator.clipboard.writeText(text).catch(() => {{}});
         }}
 
-        let n = 8;
+        const statusEndpoint = '/plugins/orchestrator/instance-status?challenge_id={challenge.id}';
+        const statusDot = document.getElementById('statusDot');
+        const statusTitle = document.getElementById('statusTitle');
+        const ttlValue = document.getElementById('ttlValue');
+        const launchDescription = document.getElementById('launchDescription');
+        const originalLaunchDescription = launchDescription.textContent;
+
+        let n = 60;
         let cancelled = false;
         const el = document.getElementById('countdown');
         const stayLink = document.getElementById('stayHere');
         const autoLine = document.getElementById('autoLine');
+
+        async function refreshInstanceState() {{
+            try {{
+                const res = await fetch(statusEndpoint);
+                const data = await res.json();
+                if (!data.ok) {{
+                    return;
+                }}
+
+                const running = Boolean(data.running);
+                statusDot.className = 'dot ' + (running ? 'ok' : 'bad');
+                statusTitle.textContent = running ? 'Instance launched' : 'Instance down';
+                ttlValue.textContent = `${{Math.max(0, Number(data.ttl_remaining_sec || 0))}} seconds`;
+                if (running) {{
+                    launchDescription.textContent = originalLaunchDescription;
+                }} else {{
+                    launchDescription.textContent = 'The instance is not currently running. Use the launch button or return to the challenge page to relaunch it.';
+                }}
+            }} catch (err) {{
+                // Keep the rendered state if live refresh temporarily fails.
+            }}
+        }}
 
         if (!{json.dumps(bool(redirect_url))}) {{
             autoLine.textContent = 'No automatic redirect for this access mode.';
@@ -1027,6 +1465,9 @@ class OrchestrationPlugin:
                 el.textContent = String(n);
             }}, 1000);
         }}
+
+        refreshInstanceState();
+        setInterval(refreshInstanceState, 10000);
     </script>
 </body>
 </html>
@@ -1038,8 +1479,7 @@ class OrchestrationPlugin:
             """
             Clickable launch button for players.
             Checks if user is authed + in a team; redirects to login if not.
-            Returns HTML with a launch button that POST to /start endpoint.
-            Query params (optional): ttl_min (default 60)
+            Redirects straight to the launch page.
             """
             # Check auth: if user not logged in, redirect to login
             user = get_current_user()
@@ -1063,9 +1503,6 @@ class OrchestrationPlugin:
                 </div>
                 """, 403
 
-            ttl_min_raw = str(request.args.get("ttl_min", "60")).strip()
-            ttl_min = int(ttl_min_raw) if ttl_min_raw.isdigit() else 60
-
             challenge = Challenges.query.get(challenge_id)
             if not challenge:
                 return "Challenge not found", 404
@@ -1083,173 +1520,7 @@ class OrchestrationPlugin:
                     400,
                 )
 
-            html = f"""
-<!doctype html>
-<html>
-<head>
-    <meta charset=\"utf-8\" />
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
-    <title>Launch {challenge.name}</title>
-    <style>
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ 
-            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }}
-        .container {{
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            padding: 40px;
-            max-width: 500px;
-            text-align: center;
-        }}
-        h2 {{
-            color: #333;
-            margin-bottom: 12px;
-            font-size: 28px;
-        }}
-        .ch-name {{
-            color: #667eea;
-            font-weight: bold;
-            font-size: 24px;
-            margin-bottom: 20px;
-        }}
-        p {{
-            color: #666;
-            line-height: 1.6;
-            margin-bottom: 8px;
-        }}
-        .settings {{
-            background: #f5f5f5;
-            border-radius: 8px;
-            padding: 16px;
-            margin: 24px 0;
-            text-align: left;
-        }}
-        .form-group {{
-            margin-bottom: 12px;
-        }}
-        label {{
-            display: block;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 4px;
-            font-size: 14px;
-        }}
-        input[type="number"] {{
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }}
-        input[type="number"]:focus {{
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }}
-        .btn {{
-            display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 14px 32px;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 12px;
-            width: 100%;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-        }}
-        .btn:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-        }}
-        .btn:active {{
-            transform: translateY(0);
-        }}
-        .loading {{ display: none; }}
-        .btn.loading {{
-            opacity: 0.7;
-            cursor: not-allowed;
-        }}
-        .loading-text {{ margin-left: 8px; }}
-        .error {{
-            background: #fee;
-            color: #c33;
-            padding: 12px;
-            border-radius: 4px;
-            margin: 12px 0;
-            display: none;
-        }}
-        .success {{
-            background: #efe;
-            color: #3c3;
-            padding: 12px;
-            border-radius: 4px;
-            margin: 12px 0;
-            display: none;
-        }}
-    </style>
-</head>
-<body>
-    <div class=\"container\">
-        <h2>Ready to start?</h2>
-        <div class=\"ch-name\">{challenge.name}</div>
-        <p>Click the button below to launch your personal instance</p>
-        
-        <div class=\"settings\">
-            <div class=\"form-group\">
-                <label for=\"ttl\">Time to Live (minutes):</label>
-                <input type=\"number\" id=\"ttl\" value=\"{ttl_min}\" min=\"5\" max=\"240\" />
-            </div>
-        </div>
-
-        <button class=\"btn\" id=\"launchBtn\" onclick=\"launchInstance()\">
-            <span id=\"btnText\">Launch Challenge</span>
-            <span class=\"loading\" id=\"btnLoading\"><span class=\"spinner\">⏳</span><span class=\"loading-text\">Launching...</span></span>
-        </button>
-
-        <div class=\"error\" id=\"errorMsg\"></div>
-        <div class=\"success\" id=\"successMsg\"></div>
-
-        <p style=\"margin-top: 24px; font-size: 12px; color: #999;\">
-            Your instance will be available for the specified TTL duration.
-        </p>
-    </div>
-
-    <script>
-        function launchInstance() {{
-            const ttl = Number(document.getElementById('ttl').value || 60);
-            const errorMsg = document.getElementById('errorMsg');
-            const successMsg = document.getElementById('successMsg');
-
-            errorMsg.style.display = 'none';
-            successMsg.style.display = 'none';
-
-            if (ttl < 5 || ttl > 240) {{
-                errorMsg.textContent = 'TTL must be between 5 and 240 minutes';
-                errorMsg.style.display = 'block';
-                return;
-            }}
-
-            // Use GET launch endpoint to avoid browser-side POST auth/CSRF pitfalls.
-            window.location.href = '/plugins/orchestrator/launch?challenge_id={challenge_id}&ttl_min=' + ttl;
-        }}
-
-        // Manual launch button - user clicks to start
-    </script>
-</body>
-</html>
-"""
-            return html
+            return redirect(f"/plugins/orchestrator/launch?challenge_id={challenge_id}", code=302)
 
         @bp.route("/ui", methods=["GET"])
         @authed_only
@@ -1258,7 +1529,178 @@ class OrchestrationPlugin:
             """Admin/dev operations UI with start/stop and live TTL."""
             if not self._is_admin_user():
                 return "Forbidden", 403
-            return render_template_string(UI_TEMPLATE)
+            return render_template_string(
+                UI_TEMPLATE,
+                team_name="Admin",
+                initial_message="",
+                initial_kind="ok",
+            )
+
+        @bp.route("/dashboard", methods=["GET"])
+        @authed_only
+        @require_team
+        def team_dashboard():
+            """Player team dashboard for instance lifecycle management."""
+            user = get_current_user()
+            team_name = "Team"
+            initial_message = str(request.args.get("msg", "") or "").strip()
+            initial_kind = str(request.args.get("kind", "ok") or "ok").strip().lower()
+            if initial_kind not in {"ok", "err"}:
+                initial_kind = "ok"
+            try:
+                if getattr(user, "team", None) and getattr(user.team, "name", None):
+                    team_name = str(user.team.name)
+                else:
+                    team_id = self._resolve_team_id()
+                    if team_id and str(team_id).isdigit():
+                        t = Teams.query.get(int(team_id))
+                        if t and getattr(t, "name", None):
+                            team_name = str(t.name)
+            except Exception:
+                # Keep dashboard available even if team name lookup fails.
+                pass
+
+            return render_template_string(
+                UI_TEMPLATE,
+                team_name=team_name,
+                initial_message=initial_message,
+                initial_kind=initial_kind,
+            )
+
+        @bp.route("/stop-ui", methods=["GET"])
+        @authed_only
+        @require_team
+        def stop_instance_ui():
+            """Stop instance from dashboard card without relying on frontend JS."""
+            team_id = self._resolve_team_id()
+            challenge_ref = str(request.args.get("challenge_ref", "") or "").strip()
+
+            if not team_id:
+                return redirect("/plugins/orchestrator/dashboard?kind=err&msg=" + quote("Team not found"), code=302)
+            if not challenge_ref:
+                return redirect("/plugins/orchestrator/dashboard?kind=err&msg=" + quote("Missing challenge reference"), code=302)
+
+            challenge = self._resolve_challenge_from_reference(challenge_ref)
+            if not challenge:
+                return redirect("/plugins/orchestrator/dashboard?kind=err&msg=" + quote("Challenge not found"), code=302)
+
+            result = self.orchestrator_handler.stop_instance(
+                challenge_name=challenge.name,
+                team_id=str(team_id),
+            )
+            if not result.get("ok"):
+                detail = str(result.get("detail", "") or result.get("error", "orchestrator_error"))
+                return redirect("/plugins/orchestrator/dashboard?kind=err&msg=" + quote(f"Kill failed: {detail}"), code=302)
+
+            self.instance_tracker.remove_instance(team_id, int(challenge.id))
+            return redirect("/plugins/orchestrator/dashboard?kind=ok&msg=" + quote(f"Instance stopped for {challenge.name}."), code=302)
+
+        @bp.route("/extend-ui", methods=["GET"])
+        @authed_only
+        @require_team
+        def extend_instance_ui():
+            """Extend instance from dashboard card without relying on frontend JS."""
+            team_id = self._resolve_team_id()
+            challenge_ref = str(request.args.get("challenge_ref", "") or "").strip()
+
+            if not team_id:
+                return redirect("/plugins/orchestrator/dashboard?kind=err&msg=" + quote("Team not found"), code=302)
+            if not challenge_ref:
+                return redirect("/plugins/orchestrator/dashboard?kind=err&msg=" + quote("Missing challenge reference"), code=302)
+
+            challenge = self._resolve_challenge_from_reference(challenge_ref)
+            if not challenge:
+                return redirect("/plugins/orchestrator/dashboard?kind=err&msg=" + quote("Challenge not found"), code=302)
+
+            add_seconds = 30 * 60
+            max_seconds = 60 * 60
+            current_ttl = 0
+            row = self._find_status_row(str(team_id), challenge.name)
+            if row and str(row.get("state", "")).strip().lower() == "running":
+                current_ttl = max(0, int(row.get("ttl_remaining_sec", 0) or 0))
+            else:
+                for inst in self.instance_tracker.get_team_instances(str(team_id)):
+                    if int(inst.get("challenge_id", -1)) == int(challenge.id):
+                        current_ttl = max(0, int(inst.get("expire_epoch", 0) or 0) - int(time.time()))
+                        break
+
+            if current_ttl <= 0:
+                return redirect("/plugins/orchestrator/dashboard?kind=err&msg=" + quote("Cannot add time: instance is not running."), code=302)
+
+            if current_ttl + add_seconds > max_seconds:
+                return redirect("/plugins/orchestrator/dashboard?kind=err&msg=" + quote("Cannot exceed 1 hour total TTL for one instance."), code=302)
+
+            result = self.orchestrator_handler.extend_instance(
+                challenge_name=challenge.name,
+                team_id=str(team_id),
+                ttl_min=30,
+            )
+            if not result.get("ok"):
+                detail = str(result.get("detail", "") or result.get("error", "orchestrator_error"))
+                return redirect("/plugins/orchestrator/dashboard?kind=err&msg=" + quote(f"Add time failed: {detail}"), code=302)
+
+            expire_epoch = int(result.get("expire_epoch", 0) or 0)
+            if expire_epoch:
+                self.instance_tracker.update_instance_expire(team_id, int(challenge.id), expire_epoch)
+
+            return redirect("/plugins/orchestrator/dashboard?kind=ok&msg=" + quote(f"Added 30m on {challenge.name}."), code=302)
+
+        @bp.route("/instance-status", methods=["GET"])
+        @authed_only
+        @require_team
+        def instance_status():
+            """Return live status for the current team/challenge from the manager."""
+            team_id = self._resolve_team_id()
+            challenge_id = request.args.get("challenge_id", "")
+            if not team_id or not str(challenge_id).isdigit():
+                return jsonify({"ok": False, "error": "invalid_request"}), 400
+
+            challenge = Challenges.query.get(int(challenge_id))
+            if not challenge:
+                return jsonify({"ok": False, "error": "challenge_not_found"}), 404
+
+            row = self._find_status_row(str(team_id), challenge.name)
+            if not row:
+                for inst in self.instance_tracker.get_team_instances(str(team_id)):
+                    if int(inst.get("challenge_id", -1)) == int(challenge.id):
+                        ttl_remaining = max(0, int(inst.get("expire_epoch", 0) or 0) - int(time.time()))
+                        return jsonify(
+                            {
+                                "ok": True,
+                                "running": ttl_remaining > 0,
+                                "state": "running" if ttl_remaining > 0 else "down",
+                                "ttl_remaining_sec": ttl_remaining,
+                                "challenge_id": challenge.id,
+                                "challenge_name": challenge.name,
+                                "team_id": str(team_id),
+                            }
+                        )
+
+                return jsonify(
+                    {
+                        "ok": True,
+                        "running": False,
+                        "state": "down",
+                        "ttl_remaining_sec": 0,
+                        "challenge_id": challenge.id,
+                        "challenge_name": challenge.name,
+                    }
+                )
+
+            ttl_remaining = int(row.get("ttl_remaining_sec", 0) or 0)
+            state = str(row.get("state", "down")).strip().lower()
+            return jsonify(
+                {
+                    "ok": True,
+                    "running": state == "running",
+                    "state": state if state else ("running" if ttl_remaining > 0 else "down"),
+                    "ttl_remaining_sec": max(0, ttl_remaining),
+                    "port": int(row.get("port", 0) or 0),
+                    "challenge_id": challenge.id,
+                    "challenge_name": challenge.name,
+                    "team_id": str(team_id),
+                }
+            )
 
         @bp.route("/sync", methods=["POST"])
         def sync_challenges_endpoint():
@@ -1284,11 +1726,11 @@ class OrchestrationPlugin:
                 for ch in challenges:
                     if not self._is_orchestrated_challenge(ch):
                         continue
-                    # Generate button link for launch-mode connection_info
-                    button_url = f"{request.host_url.rstrip('/')}/plugins/orchestrator/btn/{ch.id}?ttl_min=60"
+                    # Generate direct launch link for launch-mode connection_info
+                    button_url = f"{request.host_url.rstrip('/')}/plugins/orchestrator/launch?challenge_id={ch.id}"
                     
                     # Update connection_info with button link (if not already set)
-                    if not ch.connection_info or "btn/" not in ch.connection_info:
+                    if not ch.connection_info or "/plugins/orchestrator/launch?challenge_id=" not in ch.connection_info:
                         ch.connection_info = button_url
                         synced += 1
 

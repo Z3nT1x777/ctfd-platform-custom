@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 import re
 import time
 from typing import Dict, Any, Optional
@@ -41,6 +42,8 @@ class OrchestratorWebhookHandler:
         self.signing_secret = signing_secret
         self.webhook_token = webhook_token
         self.session = requests.Session()
+        self.default_timeout_sec = float(os.getenv("ORCHESTRATOR_HTTP_TIMEOUT_SEC", "30"))
+        self.action_timeout_sec = float(os.getenv("ORCHESTRATOR_HTTP_ACTION_TIMEOUT_SEC", "90"))
 
     def _generate_signature(self, body: str) -> tuple[str, str]:
         """Generate HMAC-SHA256 signature for request body."""
@@ -59,6 +62,7 @@ class OrchestratorWebhookHandler:
         endpoint: str,
         payload: Dict[str, Any],
         sign: bool = True,
+        timeout_sec: Optional[float] = None,
     ) -> Dict[str, Any]:
         """
         Make signed HTTP request to orchestrator.
@@ -91,10 +95,12 @@ class OrchestratorWebhookHandler:
                 f"{method} {url} | Payload: {payload}"
             )
 
+            timeout = float(timeout_sec) if timeout_sec is not None else self.default_timeout_sec
+
             if method.upper() == "POST":
-                resp = self.session.post(url, data=body_str, headers=headers, timeout=10)
+                resp = self.session.post(url, data=body_str, headers=headers, timeout=timeout)
             else:
-                resp = self.session.get(url, headers=headers, timeout=10)
+                resp = self.session.get(url, headers=headers, timeout=timeout)
 
             logger.debug(f"Status: {resp.status_code} | Response: {resp.text}")
 
@@ -152,7 +158,7 @@ class OrchestratorWebhookHandler:
         if port:
             payload["port"] = port
 
-        result = self._make_request("POST", "/start", payload)
+        result = self._make_request("POST", "/start", payload, timeout_sec=self.action_timeout_sec)
 
         # Extract useful fields if successful
         if result.get("ok"):
@@ -169,11 +175,32 @@ class OrchestratorWebhookHandler:
     ) -> Dict[str, Any]:
         """Stop a running challenge instance."""
         payload = {"challenge": challenge_name, "team": team_id}
-        return self._make_request("POST", "/stop", payload)
+        return self._make_request("POST", "/stop", payload, timeout_sec=self.action_timeout_sec)
+
+    def extend_instance(
+        self,
+        challenge_name: str,
+        team_id: str,
+        ttl_min: int = 30,
+    ) -> Dict[str, Any]:
+        """Extend a running challenge instance."""
+        payload = {"challenge": challenge_name, "team": team_id, "ttl_min": ttl_min}
+        result = self._make_request("POST", "/extend", payload, timeout_sec=self.action_timeout_sec)
+
+        if result.get("ok"):
+            stdout = result.get("stdout", "").strip()
+            parsed = self._parse_manager_output(stdout)
+            result.update(parsed)
+
+        return result
 
     def cleanup_instances(self) -> Dict[str, Any]:
         """Cleanup expired instances."""
-        return self._make_request("POST", "/cleanup", {})
+        return self._make_request("POST", "/cleanup", {}, timeout_sec=self.action_timeout_sec)
+
+    def get_status(self) -> Dict[str, Any]:
+        """Fetch live instance status from the manager."""
+        return self._make_request("GET", "/status", {}, sign=False)
 
     def _parse_manager_output(self, stdout: str) -> Dict[str, Any]:
         """

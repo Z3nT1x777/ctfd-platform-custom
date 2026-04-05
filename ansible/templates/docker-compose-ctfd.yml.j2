@@ -17,6 +17,8 @@ services:
       - ORCHESTRATOR_SIGNING_SECRET={{ orchestrator_signing_secret_effective }}
       - ORCHESTRATOR_WEBHOOK_TOKEN={{ orchestrator_ctfd_webhook_token_effective }}
       - ORCHESTRATOR_TEAM_MAX_ACTIVE={{ orchestrator_team_max_active }}
+      - ORCHESTRATOR_HTTP_TIMEOUT_SEC={{ orchestrator_http_timeout_sec }}
+      - ORCHESTRATOR_HTTP_ACTION_TIMEOUT_SEC={{ orchestrator_http_action_timeout_sec }}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -24,6 +26,7 @@ services:
       - ./ctfd_uploads:/var/uploads
       - /var/run/docker.sock:/var/run/docker.sock
       - /vagrant/scripts/ctfd-orchestrator-plugin:/opt/CTFd/CTFd/plugins/ctfd_orchestrator_plugin
+      - /vagrant/challenges:/vagrant/challenges:ro
     depends_on:
       - db
       - cache
