@@ -8,6 +8,12 @@
 
 This repository provides an end-to-end Infrastructure as Code setup for a self-hosted CTF platform.
 
+Template baseline intent:
+
+- This repository is designed to stay reusable for new teams.
+- Keep generic platform capabilities in this baseline.
+- Move team-specific branding or operational shortcuts to a separate custom repository.
+
 Core capabilities already implemented:
 
 - **Infrastructure:** Reproducible VM provisioning with Vagrant and Ansible
@@ -135,6 +141,8 @@ SECURITY_STRICT=1 python scripts/security-preflight.py
 
 | Document | Purpose | Audience |
 |----------|---------|----------|
+| [docs/TEMPLATE_SCOPE_MATRIX.md](docs/TEMPLATE_SCOPE_MATRIX.md) | Defines what belongs in baseline template vs optional vs custom-only scope | Maintainers, contributors |
+| [docs/CUSTOM_REPO_WORKFLOW.md](docs/CUSTOM_REPO_WORKFLOW.md) | Explains template/upstream and custom/origin workflow | Maintainers, platform teams |
 | [docs/WORKFLOW_PRIORITES.md](docs/WORKFLOW_PRIORITES.md) | Project roadmap by priority level (P1-P3), current implementation status | Project leads, contributors |
 | [docs/README_CHALLENGES.md](docs/README_CHALLENGES.md) | Challenge authoring and deployment workflow, template structure, validation rules | CTF authors, challenge creators |
 | [docs/PLAYER_INSTANCE_ORCHESTRATOR.md](docs/PLAYER_INSTANCE_ORCHESTRATOR.md) | Orchestrator API reference, endpoints, HMAC request signing, team quotas, audit logs | Developers, DevOps, API consumers |
@@ -145,6 +153,18 @@ SECURITY_STRICT=1 python scripts/security-preflight.py
 | [docs/CTFD_ORCHESTRATOR_INTEGRATION.md](docs/CTFD_ORCHESTRATOR_INTEGRATION.md) | CTFd plugin for automatic instance launch, player workflow, multi-team quotas | CTF organizers, players, developers |
 | [docs/CTFD_CHALLENGE_SYNC.md](docs/CTFD_CHALLENGE_SYNC.md) | Git to CTFd API sync for challenge create/update and flag upsert (GitOps publishing flow) | CTF admins, platform maintainers |
 | [docs/KUBERNETES_EXTENSION.md](docs/KUBERNETES_EXTENSION.md) | Kubernetes extension path, migration model from Docker Compose to K8s, rollout strategy | Platform engineers, DevOps |
+
+## Template and Custom Strategy
+
+Use a two-repository model:
+
+1. `ctfd-platform-template`: baseline, reusable, conservative updates.
+2. `ctfd-platform-custom`: team product repository with custom UX/ops behavior.
+
+Practical rule:
+
+- If a change helps most teams, push it to template.
+- If a change is team-specific or high-risk customization, keep it in custom.
 
 ### Key Feature Documentation
 
