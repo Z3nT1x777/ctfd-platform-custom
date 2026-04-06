@@ -81,63 +81,12 @@ Detailed guide: [docs/README_CHALLENGES.md](docs/README_CHALLENGES.md)
 
 ## Security Notes
 
-### Overview: 10 Security Controls ✅
+The template ships with security defaults enabled and keeps the sensitive parts configurable.
 
-The baseline ships with the following security controls enabled by default:
-
-| Control | Implementation | Development | Production | Status |
-|---------|----------------|-------------|------------|--------|
-| **1. API Token Auth** | `X-Orchestrator-Token` header on all endpoints | `ChangeMe-Orchestrator-Token` | Override via Vault | ✅ |
-| **2. HMAC-SHA256 Signatures** | POST operations require cryptographic signatures (timestamp + body) | `ChangeMe-Orchestrator-Signing-Secret` | Override via Vault | ✅ |
-| **3. Per-Client Rate Limiting** | 60 requests/minute per IP address (X-Forwarded-For header) | Configurable | Env var: `ORCHESTRATOR_RATE_LIMIT_PER_MIN` | ✅ |
-| **4. Per-Team Rate Limiting** | 30 requests/minute per team_id | Configurable | Env var: `ORCHESTRATOR_TEAM_RATE_LIMIT_PER_MIN` | ✅ |
-| **5. Team Instance Quotas** | Max 3 concurrent instances per team (returns 409 when exceeded) | Configurable | Env var: `ORCHESTRATOR_TEAM_MAX_ACTIVE` | ✅ |
-| **6. Audit Logging** | JSON centralized logging to `/var/log/ctf/orchestrator-audit.log` | All events tracked | Compliance-ready queries | ✅ |
-| **7. CTFd Webhook** | `POST /ctfd/event` endpoint with `X-CTFd-Webhook-Token` validation | Webhook ready | Integrated with plugin flow | ✅ |
-| **8. Localhost-Only Binding** | API binds to 127.0.0.1:18181 (internal only, nginx proxy external) | Defense in depth | nginx reverse proxy on 0.0.0.0:8181 | ✅ |
-| **9. Ansible Vault** | Encrypted secret overrides for production credentials | Optional (defaults OK) | Required for real deployments | ✅ |
-| **10. Security Preflight CI** | Detects development defaults in PRs, fails on ChangeMe-* warnings | GitHub Actions | Blocks merge if insecure defaults | ✅ |
-
-### Setup for Development vs. Production
-
-**Development (on your laptop):**
-```bash
-git clone https://github.com/USERNAME/ctfd-platform-template.git
-cd ctfd-platform-template
-vagrant up --provision
-# Default credentials are safe for local VM testing
-# No vault needed, all defaults come from ansible/vars/main.yml
-```
-
-**Production (secure deployment):**
-```bash
-# 1. Create encrypted vault file
-cp ansible/vars/vault.example.yml ansible/vars/vault.yml
-ansible-vault encrypt ansible/vars/vault.yml
-
-# 2. Edit with secure values
-ansible-vault edit ansible/vars/vault.yml
-# Override: orchestrator_token, orchestrator_signing_secret, DB passwords, etc.
-
-# 3. Provision with vault password
-ansible-playbook playbooks/main.yml --vault-password-file=/secure/path/vault-pass.txt
-
-# 4. Run security preflight
-SECURITY_STRICT=1 python scripts/security-preflight.py
-```
-
-**CI/CD Integration:**
-```bash
-# GitHub Actions / GitLab CI: Pass vault password via secrets
-# Set ANSIBLE_VAULT_PASSWORD environment variable
-# See docs/VAULT_SETUP.md for the CI/CD integration guide
-```
-
-### More Information
-
-- **Detailed controls & threat mapping:** See [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md)
-- **Vault setup for production:** See [docs/VAULT_SETUP.md](docs/VAULT_SETUP.md)
-- **Troubleshooting & debugging:** See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+- HMAC signing, rate limits, instance quotas, and webhook validation are built in.
+- Production secrets are handled through Ansible Vault.
+- Security details, threat mapping, and deployment guidance live in [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md) and [docs/VAULT_SETUP.md](docs/VAULT_SETUP.md).
+- Troubleshooting notes remain available in [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
 ## Documentation
 
@@ -146,16 +95,21 @@ SECURITY_STRICT=1 python scripts/security-preflight.py
 | [docs/REPO_CONTENT_GUIDELINES.md](docs/REPO_CONTENT_GUIDELINES.md) | Defines what belongs in public template, private template, or custom-only layers | Maintainers, contributors |
 | [docs/TEMPLATE_SCOPE_MATRIX.md](docs/TEMPLATE_SCOPE_MATRIX.md) | Defines what belongs in baseline template vs optional vs custom-only scope | Maintainers, contributors |
 | [docs/CUSTOM_REPO_WORKFLOW.md](docs/CUSTOM_REPO_WORKFLOW.md) | Explains template/upstream and custom/origin workflow | Maintainers, platform teams |
-| [docs/WORKFLOW_PRIORITES.md](docs/WORKFLOW_PRIORITES.md) | Project roadmap by priority level (P1-P3), current implementation status | Project leads, contributors |
 | [docs/README_CHALLENGES.md](docs/README_CHALLENGES.md) | Challenge authoring and deployment workflow, template structure, validation rules | CTF authors, challenge creators |
 | [docs/PLAYER_INSTANCE_ORCHESTRATOR.md](docs/PLAYER_INSTANCE_ORCHESTRATOR.md) | Orchestrator API reference, endpoints, HMAC request signing, team quotas, audit logs | Developers, DevOps, API consumers |
-| [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md) | Security hardening controls, attack surface analysis, implemented defenses | Security engineers, auditors |
-| [docs/VAULT_SETUP.md](docs/VAULT_SETUP.md) | Ansible Vault configuration for production secrets, CI/CD integration, best practices | DevOps, sysadmins, operators |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | nginx & orchestrator debugging, common issues, log locations, emergency procedures | Operators, DevOps engineers |
-| [docs/MONITORING.md](docs/MONITORING.md) | Prometheus & Grafana setup, metrics collection, dashboard creation, production alerting | DevOps engineers, ops team |
-| [docs/CTFD_ORCHESTRATOR_INTEGRATION.md](docs/CTFD_ORCHESTRATOR_INTEGRATION.md) | CTFd plugin for automatic instance launch, player workflow, multi-team quotas | CTF organizers, players, developers |
-| [docs/CTFD_CHALLENGE_SYNC.md](docs/CTFD_CHALLENGE_SYNC.md) | Git to CTFd API sync for challenge create/update and flag upsert (GitOps publishing flow) | CTF admins, platform maintainers |
-| [docs/KUBERNETES_EXTENSION.md](docs/KUBERNETES_EXTENSION.md) | Kubernetes extension path, migration model from Docker Compose to K8s, rollout strategy | Platform engineers, DevOps |
+
+### Optional Guides
+
+These are useful, but they are not required to understand or use the baseline template:
+
+- [docs/WORKFLOW_PRIORITES.md](docs/WORKFLOW_PRIORITES.md)
+- [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md)
+- [docs/VAULT_SETUP.md](docs/VAULT_SETUP.md)
+- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+- [docs/MONITORING.md](docs/MONITORING.md)
+- [docs/CTFD_ORCHESTRATOR_INTEGRATION.md](docs/CTFD_ORCHESTRATOR_INTEGRATION.md)
+- [docs/CTFD_CHALLENGE_SYNC.md](docs/CTFD_CHALLENGE_SYNC.md)
+- [docs/KUBERNETES_EXTENSION.md](docs/KUBERNETES_EXTENSION.md)
 
 ## Template and Custom Strategy
 
