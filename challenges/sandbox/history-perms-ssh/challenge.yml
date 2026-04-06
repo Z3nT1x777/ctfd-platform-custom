@@ -1,0 +1,13 @@
+name: history-perms-ssh
+category: sandbox
+value: 250
+type: docker
+connection_mode: ssh
+ssh_user: player
+container_port: 22
+description: |
+  Gain SSH access to the instance, investigate shell history breadcrumbs,
+  and exploit a privilege misconfiguration to recover the flag.
+
+flag: CTF{history_leak_plus_sudo_misconfig}
+port: 5013

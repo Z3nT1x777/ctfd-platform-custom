@@ -1,0 +1,7 @@
+services:
+  history-perms-ssh:
+    build: .
+    container_name: history-perms-ssh
+    ports:
+      - "5013:22"
+    restart: unless-stopped

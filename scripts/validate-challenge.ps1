@@ -44,6 +44,8 @@ if (Test-Path $challengeYml) {
         }
 
         $portMatch = Select-String -Path $challengeYml -Pattern '^port:\s*(\d+)' | Select-Object -First 1
+        $containerPortMatch = Select-String -Path $challengeYml -Pattern '^container_port:\s*(\d+)' | Select-Object -First 1
+        $containerPort = if ($containerPortMatch) { [int]$containerPortMatch.Matches[0].Groups[1].Value } else { 5000 }
         if (-not $portMatch) {
             $errors += 'challenge.yml missing numeric port for docker challenge'
         } else {
@@ -54,8 +56,8 @@ if (Test-Path $challengeYml) {
 
             if (Test-Path $composeYml) {
                 $compose = Get-Content $composeYml -Raw
-                if ($compose -notmatch ("`"{0}:5000`"" -f $port)) {
-                    $errors += "docker-compose.yml does not expose expected port mapping: $port:5000"
+                if ($compose -notmatch ("`"{0}:{1}`"" -f $port, $containerPort)) {
+                    $errors += "docker-compose.yml does not expose expected port mapping: ${port}:${containerPort}"
                 }
             }
         }

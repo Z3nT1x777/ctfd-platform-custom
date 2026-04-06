@@ -46,6 +46,12 @@ if [[ -f "$CHALLENGE_YML" ]]; then
     done
 
     port_line=$(grep -E '^port:[[:space:]]*[0-9]+' "$CHALLENGE_YML" | head -1 || true)
+    container_port_line=$(grep -E '^container_port:[[:space:]]*[0-9]+' "$CHALLENGE_YML" | head -1 || true)
+    if [[ -z "$container_port_line" ]]; then
+      container_port=5000
+    else
+      container_port=$(echo "$container_port_line" | awk '{print $2}' | tr -d '\r')
+    fi
     if [[ -z "$port_line" ]]; then
       errors+=("challenge.yml missing numeric port for docker challenge")
     else
@@ -54,8 +60,8 @@ if [[ -f "$CHALLENGE_YML" ]]; then
         errors+=("Port out of expected range (5001-5999): $port")
       fi
 
-      if [[ -f "$COMPOSE_YML" ]] && ! grep -q "\"${port}:5000\"" "$COMPOSE_YML"; then
-        errors+=("docker-compose.yml does not expose expected port mapping: ${port}:5000")
+      if [[ -f "$COMPOSE_YML" ]] && ! grep -q "\"${port}:${container_port}\"" "$COMPOSE_YML"; then
+        errors+=("docker-compose.yml does not expose expected port mapping: ${port}:${container_port}")
       fi
     fi
   elif [[ "$challenge_type" == "static" ]]; then
