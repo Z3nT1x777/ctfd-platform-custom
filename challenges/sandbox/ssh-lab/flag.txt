@@ -1,1 +1,0 @@
-CTF{ssh_lab_template_flag}
