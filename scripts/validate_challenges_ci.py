@@ -115,8 +115,8 @@ def main() -> int:
 
     challenge_dirs = find_challenge_dirs(CHALLENGES_ROOT)
     if not challenge_dirs:
-        print("ERROR: no challenge.yml found under challenges/")
-        return 1
+        print("Challenge validation skipped: no challenges found (template only)")
+        return 0
 
     all_errors: List[str] = []
     used_ports: Dict[int, Path] = {}

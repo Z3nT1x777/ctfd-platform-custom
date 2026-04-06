@@ -66,6 +66,18 @@ def test_instruction_example() -> None:
 
 
 def main() -> int:
+    # For template-based repos without example challenges, skip these tests
+    test_challenges = {
+        "web": ROOT / "challenges" / "web" / "simple-login",
+        "ssh": ROOT / "challenges" / "sandbox" / "ssh-lab",
+        "osint": ROOT / "challenges" / "osint" / "template-example",
+    }
+    
+    all_exist = all(path.exists() for path in test_challenges.values())
+    if not all_exist:
+        print("Access profile tests skipped: example challenges not found (template only)")
+        return 0
+    
     test_web_example()
     test_ssh_example()
     test_instruction_example()
