@@ -517,6 +517,33 @@ environment:
 
 ---
 
+## Recommended End-to-End Pipeline
+
+This is the canonical challenge flow for this repository:
+
+```mermaid
+flowchart TD
+  A[Step 1: Create challenge from family template] --> B[Step 2: Implement and update challenge.yml]
+  B --> C[Step 3: Run local validate script]
+  C --> D[Step 4a: Local compose smoke test optional]
+  D --> E[Step 4b: Orchestrator API test recommended]
+  E --> F[Step 5: Commit and open PR]
+  F --> G[CI: challenge-validation workflow]
+  F --> H[CI: security-preflight workflow when relevant files change]
+  G --> I[Merge to main]
+  H --> I
+  I --> J[Publish with sync_challenges_ctfd.py]
+  J --> K[Final smoke test in CTFd]
+```
+
+Quick interpretation:
+- Local validation gives fast feedback before you push.
+- CI enforces structure and regression checks after PR/push.
+- Sync script is the default publication path to CTFd.
+- Manual CTFd challenge creation is fallback only.
+
+---
+
 ## See Also
 
 - [docs/PLAYER_INSTANCE_ORCHESTRATOR.md](PLAYER_INSTANCE_ORCHESTRATOR.md) - API reference for orchestrator
