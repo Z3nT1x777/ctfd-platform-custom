@@ -432,13 +432,56 @@ Summary:
 
 ---
 
+## Commands Only (Fast Path)
+
+Use this compact sequence for the standard flow:
+
+```bash
+# 1) create skeleton
+bash ./scripts/new-challenge.sh my-web-challenge --family web
+
+# 2) local structure validation
+bash ./scripts/validate-challenge.sh challenges/web/my-web-challenge
+
+# 3) optional local compose smoke test
+vagrant ssh -c "cd /vagrant/challenges/web/my-web-challenge && docker compose up -d --build && docker compose down"
+
+# 4) commit + push branch
+git checkout -b feat/my-web-challenge
+git add challenges/web/my-web-challenge
+git commit -m "feat(challenges): add my-web-challenge"
+git push -u origin feat/my-web-challenge
+
+# 5) publish to CTFd (recommended path)
+python scripts/sync_challenges_ctfd.py --ctfd-url http://192.168.56.10 --api-token <ADMIN_TOKEN> --state visible --instance-base-url http://192.168.56.10
+```
+
+---
+
 ## Connecting to CTFd
 
-Recommended path (best practice):
-- Use the Git -> API sync pipeline documented in [docs/CTFD_CHALLENGE_SYNC.md](CTFD_CHALLENGE_SYNC.md).
-- Keep Git metadata as source of truth and publish/update challenges through the sync script.
+### A) Automatic Deployment (Recommended)
 
-Manual CTFd creation remains available as fallback only (debug/demo/one-off):
+Use the Git -> API sync pipeline documented in [docs/CTFD_CHALLENGE_SYNC.md](CTFD_CHALLENGE_SYNC.md).
+
+Why this is the default:
+- Git remains source of truth for challenge metadata.
+- Sync is idempotent (create/update safely).
+- Reduces drift between repo and CTFd admin UI.
+
+Typical command:
+
+```bash
+python scripts/sync_challenges_ctfd.py \
+  --ctfd-url http://192.168.56.10 \
+  --api-token <ADMIN_TOKEN> \
+  --state visible \
+  --instance-base-url http://192.168.56.10
+```
+
+### B) Manual Deployment (Fallback Only)
+
+Use this only for debug/demo/one-off actions.
 
 After deployment, challenges can be registered in CTFd:
 
