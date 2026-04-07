@@ -6,7 +6,7 @@
 
 Instead of admins manually launching challenge instances via the `/ui` dashboard, players can now:
 
-1. **Click "Start Challenge"** in CTFd UI (http://192.168.56.10:8000/challenges)
+1. **Click "Start Challenge"** in CTFd UI (http://192.168.56.10/challenges)
 2. **Instance launches automatically** (handled by plugin)
 3. **Player sees instance URL** with remaining TTL countdown
 4. **Multiple players** can launch instances of same challenge simultaneously
@@ -53,7 +53,7 @@ Player Workflow:
 ┌─────────────────────────────────────────────────────────────┐
 │ Player logs into CTFd                                       │
 ├─────────────────────────────────────────────────────────────┤
-│ http://192.168.56.10:8000/challenges                        │
+│ http://192.168.56.10/challenges                             │
 ├─────────────────────────────────────────────────────────────┤
 │ Views list of challenges (e.g., "web-01-sqli")              │
 ├─────────────────────────────────────────────────────────────┤
@@ -173,14 +173,17 @@ Use:
 
 `http://192.168.56.10:8181/ui?token=<ORCHESTRATOR_API_TOKEN>`
 
-**Note:** Internally, the orchestrator API runs on `127.0.0.1:8181`. To access from host/player machines, use the VM's static IP `192.168.56.10`.
+**Clarification - Port Mappings:**
+- **Inside VM (internal)**: Orchestrator API listens on `127.0.0.1:8181` (localhost only within VM)
+- **From Host/Players (external)**: Access via `192.168.56.10:8181` (static VM IP + must specify port 8181)
+- **CTFd Web UI**: Runs on port 80 inside VM → Access as `http://192.168.56.10` (port 80 is default HTTP, no explicit port needed)
 
 ### Test in CTFd UI
 
-1. Log into CTFd: http://192.168.56.10:8000
+1. Log into CTFd: http://192.168.56.10
 2. Join/create team
 3. Click challenge → "Start Challenge"
-4. Open ops page: `http://192.168.56.10:8000/plugins/orchestrator/ui`
+4. Open ops page: `http://192.168.56.10/plugins/orchestrator/ui`
 5. Start/stop instances from this page, watch live TTL and leaderboard
 
 ---
@@ -371,7 +374,7 @@ curl -X POST http://127.0.0.1:8181/start \
 - [x] Plugin logs show "CTFd Orchestrator Plugin initialized"
 
 #### 🚧 Functional Testing
-- [x] Player can log into CTFd UI (http://192.168.56.10:8000)
+- [x] Player can log into CTFd UI (http://192.168.56.10)
 - [x] "Start Challenge" button appears on challenge cards
 - [x] Clicking button launches instance (check orchestrator logs)
 - [x] Player receives URL + TTL remaining
