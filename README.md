@@ -149,7 +149,7 @@ After `vagrant up --provision`:
 
 | Service | URL | Port | Purpose |
 |---------|-----|------|---------|
-| **CTFd** | http://192.168.56.10 | 8000 (internal) | Main CTF platform |
-| **CTFd (Local)** | http://localhost:8000 | Forwarded | CTFd from host |
+| **CTFd** | http://192.168.56.10 | 80 (HTTP) | Main CTF platform |
+| **CTFd (Local)** | http://localhost:8000 | 8000 (Vagrant fwd) | CTFd via localhost |
 | **Orchestrator API** | http://192.168.56.10:8181 | 8181 (proxied) | Challenge instance control |
 | **Orchestrator UI** | http://192.168.56.10:8181/ui | 8181 | Web dashboard |
