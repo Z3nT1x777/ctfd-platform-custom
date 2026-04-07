@@ -14,7 +14,7 @@ Benefits:
 
 ## Scope and security stance
 
-- Player self-registration remains **OFF** by default in template (no change made).
+- Player self-registration remains **OFF** by default (recommended for event control).
 - This sync script requires an **admin API token** from CTFd.
 - It updates challenge metadata and static flags in CTFd.
 
@@ -47,6 +47,28 @@ CTFd mapping:
 ## Get CTFd API token
 
 From CTFd admin account, create a token in profile/settings (token with challenge management scope).
+
+![CTFd admin token creation screen](../assets/img/admin_token.png)
+
+Token safety rules:
+- Treat the token like a password: never paste it in public chats, screenshots, issues, or commits.
+- Prefer temporary shell environment variables over hardcoding in scripts.
+- For team/shared environments, store it in a secret manager (for example Ansible Vault or CI secret store).
+- If a token may be compromised, revoke/regenerate it immediately in CTFd and re-run your sync with the new token.
+
+Example (PowerShell):
+
+```powershell
+$env:CTFD_API_TOKEN = "<YOUR_ADMIN_TOKEN>"
+python scripts/sync_challenges_ctfd.py --ctfd-url http://192.168.56.10 --api-token $env:CTFD_API_TOKEN --dry-run
+```
+
+Example (bash):
+
+```bash
+export CTFD_API_TOKEN="<YOUR_ADMIN_TOKEN>"
+python scripts/sync_challenges_ctfd.py --ctfd-url http://192.168.56.10 --api-token "$CTFD_API_TOKEN" --dry-run
+```
 
 ## Quick start
 
