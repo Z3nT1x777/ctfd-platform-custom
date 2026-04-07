@@ -31,3 +31,29 @@ jobs:
 
       - name: Run access-profile non-regression tests
         run: python scripts/test_access_profiles.py
+
+      - name: Build challenge Dockerfiles
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          built=0
+          for dockerfile in challenges/*/*/Dockerfile; do
+            case "$dockerfile" in
+              challenges/_templates/*)
+                continue
+                ;;
+            esac
+
+            challenge_dir="$(dirname "$dockerfile")"
+            if [ ! -f "$challenge_dir/challenge.yml" ]; then
+              continue
+            fi
+
+            image_tag="challenge-ci-$(basename "$challenge_dir")"
+            echo "Building $challenge_dir as $image_tag"
+            docker build -t "$image_tag" "$challenge_dir"
+            built=$((built + 1))
+          done
+
+          echo "Built $built challenge image(s)."

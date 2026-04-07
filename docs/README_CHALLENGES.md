@@ -179,7 +179,7 @@ docker compose down
 Deploy isolated per-team instance:
 
 ```bash
-# Generate signature
+# Generate signature (run directly in your shell, no file required)
 ts=$(date +%s)
 body='{"challenge": "my-web-challenge", "team_id": "1", "ttl_min": 60}'
 sig=$(printf "%s.%s" "$ts" "$body" | \
@@ -214,6 +214,16 @@ curl -X POST http://192.168.56.10:8181/stop \
   -d "$body"
 ```
 
+What these variables do:
+- `ts`: current Unix timestamp used by server-side replay protection.
+- `body`: exact JSON payload sent to the API.
+- `sig`: HMAC-SHA256 signature computed from `"<timestamp>.<body>"`.
+
+Important:
+- You should execute these commands directly in terminal (TTY).
+- `sig` must be recomputed every time `ts` or `body` changes.
+- For production, never keep `ChangeMe-...` secrets; use real values from Vault-managed config.
+
 ### Step 5: Commit & Submit PR
 
 ```bash
@@ -227,6 +237,10 @@ CI will automatically:
 - Run validation
 - Check for security issues
 - Verify Dockerfile builds
+
+CI details:
+- Challenge CI: `.github/workflows/challenge-validation.yml` (triggered on challenge changes in PR/push)
+- Security CI: `.github/workflows/security-preflight.yml` (triggered on security-config related changes)
 
 ---
 
@@ -342,7 +356,9 @@ services:
 
 ---
 
-## Testing Locally Before Orchestrator
+## Optional Deep Local Checks (Before Orchestrator)
+
+Step 4a already covers standard local Compose testing. The checks below are optional when you need deeper debugging.
 
 ### Build Docker image
 
@@ -394,7 +410,11 @@ Checks:
 
 ### CI Validation Workflow
 
-When PR is opened, `.github/workflows/challenge-validation.yml` runs:
+When a PR or push includes files under `challenges/**`, `.github/workflows/challenge-validation.yml` runs automatically.
+
+Security checks run in a separate workflow (`.github/workflows/security-preflight.yml`) when security config files change.
+
+Challenge CI runs these checks:
 
 ```bash
 # Validate all challenge directories
@@ -406,9 +426,19 @@ for challenge in challenges/*/*/Dockerfile; do
 done
 ```
 
+Summary:
+- Local validation script: run manually before commit (fast feedback).
+- CI validation: runs automatically after commit/PR based on changed paths.
+
 ---
 
-## Connecting to CTFd (Optional)
+## Connecting to CTFd
+
+Recommended path (best practice):
+- Use the Git -> API sync pipeline documented in [docs/CTFD_CHALLENGE_SYNC.md](CTFD_CHALLENGE_SYNC.md).
+- Keep Git metadata as source of truth and publish/update challenges through the sync script.
+
+Manual CTFd creation remains available as fallback only (debug/demo/one-off):
 
 After deployment, challenges can be registered in CTFd:
 
@@ -421,6 +451,11 @@ After deployment, challenges can be registered in CTFd:
    - Category → `challenge.yml.category`
 4. Create challenge
 5. For player access: provide orchestrator port (6101, 6102, etc.)
+
+Why manual is not the default:
+- It duplicates metadata entry.
+- It bypasses idempotent GitOps sync behavior.
+- It increases drift risk between `challenge.yml` and CTFd UI state.
 
 ---
 
@@ -477,6 +512,7 @@ environment:
 - Store secrets in Dockerfile or code
 - Use `latest` tags (pin versions)
 - Deploy template folders directly
+- Use manual CTFd form entry as the primary publication path (prefer sync script)
 - Modify challenge after players start solving
 
 ---

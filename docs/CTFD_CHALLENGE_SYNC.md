@@ -76,6 +76,7 @@ python scripts/sync_challenges_ctfd.py \
   --ctfd-url http://192.168.56.10 \
   --api-token <YOUR_ADMIN_TOKEN> \
   --state hidden
+```
 
 ### 4. Optional: admin UI links instead of one-click launch
 
@@ -100,7 +101,16 @@ python scripts/sync_challenges_ctfd.py \
   --connection-mode static-port \
   --instance-base-url http://192.168.56.10
 ```
-```
+
+## Recommended publication pipeline
+
+For this repository, the default challenge publication flow is:
+1. Create/update challenge files in Git.
+2. Validate locally (`validate-challenge` script).
+3. Open PR and let CI validate structure/tests.
+4. Run sync script to publish/update in CTFd.
+
+Manual challenge creation in CTFd admin UI should be treated as fallback only.
 
 ## Environment variables (optional)
 
