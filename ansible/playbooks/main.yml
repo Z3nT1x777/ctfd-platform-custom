@@ -144,6 +144,18 @@
         dest: /etc/systemd/system/player-instance-cleanup.timer
         mode: '0644'
 
+    - name: Stop any container occupying port 80 before nginx reconfiguration
+      shell: |
+        cids=$(docker ps --filter "publish=80" -q 2>/dev/null)
+        if [ -n "$cids" ]; then
+          echo "Stopping containers on port 80: $cids"
+          docker stop $cids
+        fi
+      args:
+        executable: /bin/bash
+      changed_when: false
+      failed_when: false
+
     - name: Create OSINT static web root
       file:
         path: "{{ osint_static_web_root }}"
