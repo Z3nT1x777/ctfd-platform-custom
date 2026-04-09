@@ -131,6 +131,15 @@ def build_spec(challenge_dir: Path) -> ChallengeSpec:
     value = int(value_raw or "100")
     challenge_type = str(raw.get("type", "docker")).strip() or "docker"
     description = str(raw.get("description", "")).strip()
+    # Correction automatique du lien dans la description pour OSINT statique
+    if category == "osint" and challenge_type == "static":
+        import re
+        # Remplace tout lien http://...:PORT par l'URL statique
+        description = re.sub(
+            r"http://[\w\.-]+:\d+",
+            f"http://192.168.56.10/osint/{challenge_dir.name}/resources/",
+            description,
+        )
     flag = str(raw.get("flag", "")).strip()
 
     if not flag:
