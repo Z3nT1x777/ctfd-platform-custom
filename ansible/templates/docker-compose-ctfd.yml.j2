@@ -7,7 +7,7 @@ services:
     container_name: ctfd
     restart: unless-stopped
     ports:
-      - "{{ ctfd_port }}:8000"
+      - "127.0.0.1:{{ ctfd_internal_port }}:8000"
     environment:
       - DATABASE_URL=mysql+pymysql://{{ DB_USER }}:{{ db_password_effective }}@db/{{ DB_NAME }}
       - REDIS_URL=redis://cache:6379
@@ -27,8 +27,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /vagrant/scripts/ctfd-orchestrator-plugin:/opt/CTFd/CTFd/plugins/ctfd_orchestrator_plugin
       - /vagrant/challenges:/vagrant/challenges:ro
-      - /var/www/osint:/var/www/osint:ro
-      - /vagrant/ansible/docker/ctfd/osint-static.conf:/etc/nginx/conf.d/osint-static.conf:ro
     depends_on:
       - db
       - cache

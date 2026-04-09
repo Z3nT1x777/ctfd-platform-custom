@@ -1,7 +1,11 @@
 ---
 ctfd_version: "latest"
 ctfd_port: 80
+ctfd_internal_port: 8900
 ctfd_db_port: 3306
+
+# OSINT static file serving
+osint_static_web_root: /var/www/osint
 gitlab_version: "latest"
 gitlab_http_port: 8080
 gitlab_ssh_port: 2222

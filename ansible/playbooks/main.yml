@@ -144,6 +144,26 @@
         dest: /etc/systemd/system/player-instance-cleanup.timer
         mode: '0644'
 
+    - name: Create OSINT static web root
+      file:
+        path: "{{ osint_static_web_root }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
+    - name: Install CTFd frontend nginx config (port 80 + /osint/ static)
+      template:
+        src: ../templates/ctfd-nginx.conf.j2
+        dest: /etc/nginx/sites-available/ctfd.conf
+        mode: '0644'
+
+    - name: Enable CTFd nginx site
+      file:
+        src: /etc/nginx/sites-available/ctfd.conf
+        dest: /etc/nginx/sites-enabled/ctfd.conf
+        state: link
+
     - name: Install orchestrator nginx reverse proxy
       template:
         src: ../templates/orchestrator-api.nginx.conf.j2
@@ -233,6 +253,15 @@
       retries: 30
       delay: 10
 
+
+    - name: Sync OSINT static challenge assets to web root
+      command: >
+        python3 /vagrant/scripts/sync_osint_static.py
+        --target {{ osint_static_web_root }}
+        --challenges-root /vagrant/challenges
+      register: osint_sync_result
+      changed_when: "'Synchronisé' in osint_sync_result.stdout or 'copied' in osint_sync_result.stdout"
+      failed_when: false
 
     - name: Success message
       debug:
