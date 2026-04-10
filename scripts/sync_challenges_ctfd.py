@@ -267,9 +267,9 @@ def sync_challenge(
     else:
         challenge_id = -1  # Will be filled after creation
     
-    # Static/OSINT challenges: use the connection_info from challenge.yml directly.
+    # Static challenges: connection_info left empty (URL already in description).
     # Docker/dynamic challenges: generate the URL based on connection_mode.
-    connection_info = spec.connection_info  # default: passthrough from YAML
+    connection_info = ""
     if spec.challenge_type in ["docker", "dynamic"]:
         if connection_mode == "static-port" and spec.port is not None and instance_base_url:
             connection_info = f"{instance_base_url.rstrip('/')}:{{spec.port}}"
