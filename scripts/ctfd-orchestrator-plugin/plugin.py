@@ -669,6 +669,38 @@ class OrchestrationPlugin:
 
         return None
 
+    @staticmethod
+    def _highlight_ssh_cmd(cmd: str) -> str:
+        """Tokenize an SSH command and wrap tokens in colored spans."""
+        import re as _re
+        tokens = cmd.split()
+        if not tokens:
+            return html.escape(cmd)
+        parts = []
+        i = 0
+        while i < len(tokens):
+            tok = tokens[i]
+            if i == 0:
+                parts.append(f'<span class="sh-kw">{html.escape(tok)}</span>')
+            elif _re.match(r'^-\w+$', tok):
+                parts.append(f'<span class="sh-flag">{html.escape(tok)}</span>')
+                if i + 1 < len(tokens) and not tokens[i + 1].startswith('-'):
+                    i += 1
+                    parts.append(f'<span class="sh-val">{html.escape(tokens[i])}</span>')
+            elif '@' in tok:
+                at = tok.index('@')
+                parts.append(
+                    f'<span class="sh-user">{html.escape(tok[:at])}</span>'
+                    f'<span class="sh-at">@</span>'
+                    f'<span class="sh-host">{html.escape(tok[at + 1:])}</span>'
+                )
+            elif _re.match(r'^\d+$', tok):
+                parts.append(f'<span class="sh-val">{html.escape(tok)}</span>')
+            else:
+                parts.append(html.escape(tok))
+            i += 1
+        return ' '.join(parts)
+
     def _build_launch_description(self, challenge, access_methods: List[Dict[str, str]]) -> str:
         methods = {str(m.get("type", "")).strip().lower() for m in access_methods}
         if "web" in methods:
@@ -1470,13 +1502,16 @@ class OrchestrationPlugin:
                 user_html = html.escape(cred_user) if cred_user else "-"
                 pass_html = html.escape(cred_password) if cred_password else "-"
                 credentials_block = f"""
-<details class=\"method reveal\">
-    <summary>Credentials (click to reveal)</summary>
-    <div class=\"reveal-body\">
-        <div class=\"kv-row\"><strong>Username:</strong> <code>{user_html}</code></div>
-        <div class=\"kv-row\"><strong>Password:</strong> <code>{pass_html}</code></div>
+<div class=\"method cred-block\">
+    <div class=\"cred-header\">
+        <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" fill=\"currentColor\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z\"/></svg>
+        <span>Credentials</span>
     </div>
-</details>
+    <div class=\"cred-body\">
+        <div class=\"kv-row\"><span class=\"kv-label\">Username</span><code>{user_html}</code></div>
+        <div class=\"kv-row\"><span class=\"kv-label\">Password</span><code>{pass_html}</code></div>
+    </div>
+</div>
 """
 
             hint_block = ""
@@ -1506,10 +1541,6 @@ class OrchestrationPlugin:
             if not status_running:
                 status_ttl_remaining = 0
 
-            relaunch_href = f"/plugins/orchestrator/launch?challenge_id={int(challenge.id)}"
-            relaunch_label = "Relaunch Instance" if status_running else "Start Instance"
-            relaunch_block = f'<a class="btn btn-primary" id="relaunchBtn" href="{relaunch_href}" style="margin-right:8px;">{relaunch_label}</a>'
-
             method_blocks = []
             for idx, method in enumerate(access_methods):
                 mtype = method.get("type")
@@ -1525,17 +1556,21 @@ class OrchestrationPlugin:
                 elif mtype == "ssh":
                     linux_raw = str(method.get("linux", "") or "")
                     windows_raw = str(method.get("windows", "") or "")
-                    linux_cmd = html.escape(linux_raw)
-                    windows_cmd = html.escape(windows_raw)
+                    linux_hl = self._highlight_ssh_cmd(linux_raw)
+                    windows_hl = self._highlight_ssh_cmd(windows_raw)
+                    linux_esc = html.escape(linux_raw)
+                    windows_esc = html.escape(windows_raw)
                     if linux_raw.strip() == windows_raw.strip():
                         method_blocks.append(
                             f"""
 <div class=\"method\">
     <h3>SSH Access</h3>
-    <p class=\"note\">Click the command card to copy it.</p>
-    <div class=\"cmd-row\">
-        <label>Command</label>
-        <div class=\"cmd-copy-card\" role=\"button\" tabindex=\"0\" aria-label=\"Copy SSH command\" data-copy=\"{linux_cmd}\">{linux_cmd}<span class=\"copy-icon\" aria-hidden=\"true\"></span><span class=\"copy-ok\">COPIED</span></div>
+    <div class=\"gh-cmd-wrap\">
+        <button class=\"gh-copy-btn\" data-copy=\"{linux_esc}\" aria-label=\"Copy command\" title=\"Copy\">
+            <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" fill=\"currentColor\" viewBox=\"0 0 16 16\"><path d=\"M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z\"/><path d=\"M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z\"/></svg>
+            <span class=\"gh-copy-label\">Copy</span>
+        </button>
+        <code class=\"gh-cmd\">{linux_hl}</code>
     </div>
 </div>
 """
@@ -1545,14 +1580,25 @@ class OrchestrationPlugin:
                             f"""
 <div class=\"method\">
     <h3>SSH Access</h3>
-    <p class=\"note\">Click either command card to copy it.</p>
     <div class=\"cmd-row\">
-        <label>Linux/macOS</label>
-        <div class=\"cmd-copy-card\" role=\"button\" tabindex=\"0\" aria-label=\"Copy Linux command\" data-copy=\"{linux_cmd}\">{linux_cmd}<span class=\"copy-icon\" aria-hidden=\"true\"></span><span class=\"copy-ok\">COPIED</span></div>
+        <label>Linux / macOS</label>
+        <div class=\"gh-cmd-wrap\">
+            <button class=\"gh-copy-btn\" data-copy=\"{linux_esc}\" aria-label=\"Copy\" title=\"Copy\">
+                <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" fill=\"currentColor\" viewBox=\"0 0 16 16\"><path d=\"M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z\"/><path d=\"M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z\"/></svg>
+                <span class=\"gh-copy-label\">Copy</span>
+            </button>
+            <code class=\"gh-cmd\">{linux_hl}</code>
+        </div>
     </div>
     <div class=\"cmd-row\">
         <label>Windows (PowerShell)</label>
-        <div class=\"cmd-copy-card\" role=\"button\" tabindex=\"0\" aria-label=\"Copy Windows command\" data-copy=\"{windows_cmd}\">{windows_cmd}<span class=\"copy-icon\" aria-hidden=\"true\"></span><span class=\"copy-ok\">COPIED</span></div>
+        <div class=\"gh-cmd-wrap\">
+            <button class=\"gh-copy-btn\" data-copy=\"{windows_esc}\" aria-label=\"Copy\" title=\"Copy\">
+                <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" fill=\"currentColor\" viewBox=\"0 0 16 16\"><path d=\"M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z\"/><path d=\"M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z\"/></svg>
+                <span class=\"gh-copy-label\">Copy</span>
+            </button>
+            <code class=\"gh-cmd\">{windows_hl}</code>
+        </div>
     </div>
 </div>
 """
@@ -1590,7 +1636,6 @@ class OrchestrationPlugin:
             --warn: #f59e0b;
             --btn-primary: #2563eb;
             --btn-secondary: #0f1a2a;
-            --ring: rgba(59, 130, 246, 0.18);
             --line: #2a3548;
         }}
 
@@ -1631,24 +1676,24 @@ class OrchestrationPlugin:
             height: 12px;
             border-radius: 999px;
             background: var(--ok);
-            box-shadow: 0 0 0 8px var(--ring);
-            animation: pulse 1.8s infinite ease-in-out;
+            --glow: rgba(52, 211, 153, 0.5);
+            animation: pulse 2s infinite ease-in-out;
         }}
 
         .dot.bad {{
             background: var(--bad);
-            box-shadow: 0 0 0 8px rgba(185, 28, 28, 0.12);
+            --glow: rgba(248, 113, 113, 0.45);
         }}
 
         .dot.warn {{
             background: var(--warn);
-            box-shadow: 0 0 0 8px rgba(245, 158, 11, 0.12);
+            --glow: rgba(245, 158, 11, 0.45);
         }}
 
         @keyframes pulse {{
-            0% {{ box-shadow: 0 0 0 0 var(--ring); }}
-            70% {{ box-shadow: 0 0 0 12px rgba(37,99,235,0); }}
-            100% {{ box-shadow: 0 0 0 0 rgba(37,99,235,0); }}
+            0%   {{ box-shadow: 0 0 0 0    var(--glow); }}
+            70%  {{ box-shadow: 0 0 0 10px rgba(0,0,0,0); }}
+            100% {{ box-shadow: 0 0 0 0    rgba(0,0,0,0); }}
         }}
 
         .title {{
@@ -1675,6 +1720,21 @@ class OrchestrationPlugin:
 
         .k {{ font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }}
         .v {{ margin-top: 6px; font-size: 1rem; font-weight: 650; color: var(--text); word-break: break-word; }}
+
+        .ttl-bar-wrap {{
+            height: 3px;
+            background: var(--line);
+            border-radius: 999px;
+            margin: 0 0 18px;
+            overflow: hidden;
+        }}
+
+        .ttl-bar {{
+            height: 100%;
+            background: linear-gradient(90deg, #34d399, #2563eb);
+            border-radius: 999px;
+            transition: width 10s linear;
+        }}
 
         .note {{
             color: var(--muted);
@@ -1888,6 +1948,81 @@ class OrchestrationPlugin:
             text-align: center;
         }}
 
+        /* ── GitHub-style code block ── */
+        .gh-cmd-wrap {{
+            position: relative;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 14px 52px 14px 16px;
+            margin: 6px 0 0;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.93rem;
+            line-height: 1.6;
+            overflow-x: auto;
+            word-break: break-all;
+        }}
+
+        .gh-cmd {{ color: #e6edf7; }}
+
+        /* syntax tokens */
+        .sh-kw   {{ color: #79c0ff; font-weight: 700; }}
+        .sh-flag {{ color: #7ee787; }}
+        .sh-val  {{ color: #f2cc60; }}
+        .sh-user {{ color: #ffa657; }}
+        .sh-at   {{ color: #9aa8bc; }}
+        .sh-host {{ color: #ffa657; }}
+
+        .gh-copy-btn {{
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 4px 8px;
+            cursor: pointer;
+            color: #8b949e;
+            font-size: 0.78rem;
+            font-family: inherit;
+            transition: background 0.18s, color 0.18s, border-color 0.18s;
+            white-space: nowrap;
+        }}
+
+        .gh-copy-btn:hover {{ background: #30363d; color: #e6edf7; }}
+        .gh-copy-btn.copied {{ color: #3fb950; border-color: #3fb950; background: #0f2318; }}
+        .gh-copy-btn.copied .gh-copy-label::before {{ content: "Copied!"; }}
+        .gh-copy-btn:not(.copied) .gh-copy-label::before {{ content: "Copy"; }}
+        .gh-copy-label {{ font-size: 0.78rem; }}
+
+        /* ── Credentials block (always visible) ── */
+        .cred-block {{ padding: 0; overflow: hidden; }}
+
+        .cred-header {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 14px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #14243a, #1c2d45);
+            border-radius: 12px 12px 0 0;
+        }}
+
+        .cred-body {{
+            border-top: 1px solid var(--line);
+            padding: 12px 14px 14px;
+        }}
+
+        .kv-label {{
+            display: inline-block;
+            min-width: 80px;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }}
+
         @media (max-width: 740px) {{
             .meta {{ grid-template-columns: 1fr; }}
             .btn {{ width: 100%; text-align: center; }}
@@ -1917,6 +2052,8 @@ class OrchestrationPlugin:
                 </div>
             </div>
 
+            <div class=\"ttl-bar-wrap\"><div class=\"ttl-bar\" id=\"ttlBar\" style=\"width:{min(100, int(status_ttl_remaining / 36))}%\"></div></div>
+
             <p class=\"note\" id=\"launchDescription\">{html.escape(launch_description)}</p>
 
             {credentials_block}
@@ -1925,7 +2062,7 @@ class OrchestrationPlugin:
 
             {''.join(method_blocks)}
 
-            <div class=\"btn-row\">{relaunch_block}<a class=\"btn btn-secondary\" href=\"/challenges\">Back to Challenges</a></div>
+            <div class=\"btn-row\"><a class=\"btn btn-secondary\" href=\"/challenges\">← Back to Challenges</a></div>
 
             <p class=\"tiny\" id=\"autoLine\">Redirecting in <span id=\"countdown\">60</span>s... <a href=\"#\" id=\"stayHere\" style=\"color:var(--btn-primary); margin-left:6px;\">stay here</a></p>
         </div>
@@ -1985,19 +2122,15 @@ class OrchestrationPlugin:
             window.setTimeout(() => card.classList.remove('copied'), 900);
         }}
 
+        // GitHub-style copy buttons
         document.addEventListener('click', (ev) => {{
-            const card = ev.target.closest('.cmd-copy-card');
-            if (!card) return;
-            copyCmdText(card.getAttribute('data-copy') || card.innerText || '').then((ok) => markCopied(card, ok));
-        }});
-
-        document.addEventListener('keydown', (ev) => {{
-            const card = ev.target.closest('.cmd-copy-card');
-            if (!card) return;
-            if (ev.key === 'Enter' || ev.key === ' ') {{
-                ev.preventDefault();
-                copyCmdText(card.getAttribute('data-copy') || card.innerText || '').then((ok) => markCopied(card, ok));
-            }}
+            const btn = ev.target.closest('.gh-copy-btn');
+            if (!btn) return;
+            copyCmdText(btn.getAttribute('data-copy') || '').then((ok) => {{
+                if (!ok) return;
+                btn.classList.add('copied');
+                window.setTimeout(() => btn.classList.remove('copied'), 1800);
+            }});
         }});
 
         const statusEndpoint = '/plugins/orchestrator/instance-status?challenge_id={challenge.id}';
@@ -2028,10 +2161,12 @@ class OrchestrationPlugin:
                 const remM = Math.floor(remSec / 60);
                 const remS = remSec % 60;
                 ttlValue.textContent = remSec > 0 ? `${{remM}}m ${{String(remS).padStart(2, '0')}}s` : '—';
+                const bar = document.getElementById('ttlBar');
+                if (bar) bar.style.width = remSec > 0 ? Math.min(100, Math.round(remSec / 36)) + '%' : '0%';
                 if (running) {{
                     launchDescription.textContent = originalLaunchDescription;
                 }} else {{
-                    launchDescription.textContent = 'The instance is not currently running. Use the launch button or return to the challenge page to relaunch it.';
+                    launchDescription.textContent = 'Instance not running. Navigate back to the challenge to relaunch it.';
                 }}
             }} catch (err) {{
                 // Keep the rendered state if live refresh temporarily fails.

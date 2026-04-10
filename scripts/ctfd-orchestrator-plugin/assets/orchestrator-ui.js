@@ -1,59 +1,40 @@
 (function () {
-  function applyFloatingButtonStyle(link, bottomOffset) {
-    link.style.position = "fixed";
-    link.style.right = "18px";
-    link.style.bottom = bottomOffset;
-    link.style.zIndex = "9999";
-    link.style.textDecoration = "none";
-    link.style.borderRadius = "999px";
-    link.style.boxShadow = "0 12px 30px rgba(0,0,0,0.18)";
-  }
+  function mountNavLink() {
+    if (document.getElementById("orchestrator-nav-link")) return;
 
-  function mountQuickLink() {
-    if (document.getElementById("orchestrator-ui-link")) {
-      return;
-    }
+    // Target CTFd's Bootstrap navbar — prefer the rightmost nav-list (user links)
+    const navLists = document.querySelectorAll("ul.navbar-nav");
+    const navList = navLists[navLists.length - 1] || navLists[0];
+    if (!navList) return;
+
+    const item = document.createElement("li");
+    item.className = "nav-item";
 
     const link = document.createElement("a");
-    link.id = "orchestrator-ui-link";
+    link.id = "orchestrator-nav-link";
     link.href = "/plugins/orchestrator/dashboard";
-    link.textContent = "Team Dashboard";
-    link.className = "btn btn-primary btn-sm";
+    link.className = "nav-link";
+    link.style.display = "flex";
+    link.style.alignItems = "center";
+    link.style.gap = "5px";
+    link.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">' +
+      '<path d="M0 1a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V1zm9 0a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V1zM0 9a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V9zm9 3a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-3z"/>' +
+      "</svg>Dashboard";
 
-    const onChallengesPage = window.location.pathname.startsWith("/challenges");
-
-    if (onChallengesPage) {
-      applyFloatingButtonStyle(link, "18px");
-      document.body.appendChild(link);
-      return;
-    }
-
-    const navBar = document.querySelector("nav .navbar-nav") || document.querySelector(".navbar-nav") || document.querySelector("nav ul") || document.querySelector("header ul");
-    if (navBar) {
-      const item = document.createElement("li");
-      item.className = "nav-item";
-      link.classList.add("nav-link");
-      item.appendChild(link);
-      navBar.appendChild(item);
-      return;
-    }
-
-    applyFloatingButtonStyle(link, "16px");
-
-    document.body.appendChild(link);
+    item.appendChild(link);
+    navList.appendChild(item);
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", mountQuickLink);
+    document.addEventListener("DOMContentLoaded", mountNavLink);
   } else {
-    mountQuickLink();
+    mountNavLink();
   }
 
-  const observer = new MutationObserver(() => {
-    mountQuickLink();
-  });
-
+  // Re-run on SPA navigation (CTFd uses AJAX for challenge modals)
+  const observer = new MutationObserver(mountNavLink);
   if (document.body) {
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, { childList: true, subtree: false });
   }
 })();
