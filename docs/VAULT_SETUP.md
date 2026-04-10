@@ -6,6 +6,21 @@ Ansible Vault secures production secrets (database passwords, API signing keys, 
 
 ---
 
+## Secrets Reference
+
+| Secret | Used by | Purpose |
+|--------|---------|---------|
+| `DB_ROOT_PASSWORD` | MariaDB | Compte root — administration de la base (création users, backups) |
+| `DB_PASSWORD` | MariaDB + CTFd | Compte `ctfd` — connexion runtime de l'application à la base |
+| `orchestrator_api_token` | Orchestrateur | Header `X-Orchestrator-Token` — authentifie chaque appel API |
+| `orchestrator_signing_secret` | Orchestrateur | Clé HMAC-SHA256 pour signer les requêtes POST (anti-replay) |
+| `orchestrator_ctfd_webhook_token` | CTFd → Orchestrateur | Authentifie les webhooks envoyés par CTFd vers l'orchestrateur |
+| `grafana_admin_password` | Grafana | Mot de passe du compte `admin` Grafana |
+
+> **Important :** `DB_PASSWORD` doit être identique dans le vault ET dans MariaDB. Si vous changez ce secret après la première initialisation, vous devez supprimer `/opt/ctf/ctfd/db_data/` sur la VM et re-provisionner pour que MariaDB soit réinitialisée avec le nouveau mot de passe.
+
+---
+
 ## File Structure
 
 ```
@@ -46,16 +61,27 @@ To edit an encrypted vault file:
 ansible-vault edit vault.yml
 ```
 
-Example content (automatically encrypted):
+Example content (automatically encrypted — mirrors `vault.example.yml`):
 
 ```yaml
 # Database secrets
-db_root_password_vault: "your-secure-root-pass"
-db_password_vault: "your-secure-db-pass"
+DB_ROOT_PASSWORD: "your-strong-root-password"
+DB_PASSWORD: "your-strong-db-password"
 
 # Orchestrator API secrets
-orchestrator_signing_secret_vault: "your-hmac-secret-64-char-string"
-orchestrator_ctfd_webhook_token_vault: "your-webhook-token"
+orchestrator_api_token: "your-64-char-random-token"
+orchestrator_signing_secret: "your-64-char-hmac-secret"
+orchestrator_ctfd_webhook_token: "your-webhook-token"
+
+# Monitoring
+grafana_admin_password: "your-strong-grafana-password"
+```
+
+Generate strong secrets with:
+
+```bash
+openssl rand -hex 32   # 64-char hex — for tokens and signing secrets
+openssl rand -base64 24  # 32-char base64 — for passwords
 ```
 
 ### 4. Set Up Vault Password File (CI/CD or Automation)
@@ -94,10 +120,14 @@ The playbook loads vault.yml **without failing if it doesn't exist** (for develo
 For each secret, the playbook sets an "effective" value, preferring vault overrides:
 
 ```yaml
-- name: Set effective secrets
+- name: Build effective secret values
   set_fact:
-    db_root_password_effective: "{{ db_root_password_vault | default(db_root_password, true) }}"
-    orchestrator_signing_secret_effective: "{{ orchestrator_signing_secret_vault | default(orchestrator_signing_secret, true) }}"
+    db_root_password_effective:            "{{ vault_overrides.DB_ROOT_PASSWORD            | default(DB_ROOT_PASSWORD) }}"
+    db_password_effective:                 "{{ vault_overrides.DB_PASSWORD                 | default(DB_PASSWORD) }}"
+    orchestrator_api_token_effective:      "{{ vault_overrides.orchestrator_api_token      | default(orchestrator_api_token) }}"
+    orchestrator_signing_secret_effective: "{{ vault_overrides.orchestrator_signing_secret | default(orchestrator_signing_secret) }}"
+    orchestrator_ctfd_webhook_token_effective: "{{ vault_overrides.orchestrator_ctfd_webhook_token | default(orchestrator_ctfd_webhook_token) }}"
+    grafana_admin_password_effective:      "{{ vault_overrides.grafana_admin_password      | default(grafana_admin_password) }}"
   no_log: true
 ```
 

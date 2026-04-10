@@ -26,6 +26,7 @@ class ChallengeSpec:
     description: str
     flag: str
     port: int | None
+    connection_info: str = ""
 
 
 def extract_first_mapped_host_port(path: Path) -> int | None:
@@ -159,6 +160,8 @@ def build_spec(challenge_dir: Path) -> ChallengeSpec:
     if not flag:
         raise ValueError(f"Missing flag in {yml_path} and flag.txt")
 
+    connection_info = str(raw.get("connection_info", "")).strip()
+
     return ChallengeSpec(
         path=challenge_dir,
         name=name,
@@ -168,6 +171,7 @@ def build_spec(challenge_dir: Path) -> ChallengeSpec:
         description=description,
         flag=flag,
         port=port,
+        connection_info=connection_info,
     )
 
 
@@ -263,7 +267,8 @@ def sync_challenge(
     else:
         challenge_id = -1  # Will be filled after creation
     
-    # Ne pas générer de lien orchestrateur pour les challenges statiques
+    # Static challenges: connection_info left empty (URL already in description).
+    # Docker/dynamic challenges: generate the URL based on connection_mode.
     connection_info = ""
     if spec.challenge_type in ["docker", "dynamic"]:
         if connection_mode == "static-port" and spec.port is not None and instance_base_url:
