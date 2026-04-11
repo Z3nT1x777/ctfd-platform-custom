@@ -172,6 +172,8 @@ button{cursor:pointer;font-family:inherit;font-size:inherit;}
 @media(max-width:960px){.body-grid{grid-template-columns:1fr;}.stats-row{grid-template-columns:repeat(2,1fr);}.inst-body{grid-template-columns:1fr 1fr;}}
 @media(max-width:640px){.sidebar{display:none;}.stats-row{grid-template-columns:1fr 1fr;}}
 {% endraw %}</style>
+<script>var _CFG = { max_active: {{ max_active }}, team_name: {{ team_name | tojson }} };</script>
+<script src="/plugins/ctfd_orchestrator_plugin/assets/orchestrator-ui.js"></script>
 </head>
 <body>
 
@@ -278,9 +280,6 @@ button{cursor:pointer;font-family:inherit;font-size:inherit;}
   </div>
 </main>
 
-<script>
-var _CFG = { max_active: {{ max_active }}, team_name: {{ team_name | tojson }} };
-</script>
 </body>
 </html>"""
 
