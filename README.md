@@ -6,171 +6,262 @@
 
 ## Overview
 
-This repository is the single source of truth for the custom CTF platform deployment and operations.
+Single-repository platform for running a fully automated CTF with per-team Docker instances, custom dashboard, and challenge sync.
 
-Included capabilities:
+**Capabilities:**
 
-- **Infrastructure:** Reproducible VM provisioning with Vagrant and Ansible
-- **Platform:** CTFd deployment on Docker Compose with centralized configuration
-- **Challenges:** Templates by family (`web`, `osint`, `sandbox`, `reverse`, `pwn`) with CI validation
-- **Orchestration:** Per-team challenge instance management with automatic TTL-based cleanup
-- **API Security:** HMAC-SHA256 request signing, per-team rate limiting (30 req/min), per-client rate limiting (60 req/min)
-- **Quotas:** Per-team instance quotas (max 3 concurrent by default, configurable)
-- **Audit Logging:** Centralized JSON audit logs to `/var/log/ctf/orchestrator-audit.log` with event tracking
-- **Webhooks:** CTFd event trigger endpoint (`POST /ctfd/event`) for automated instance lifecycle
-- **Web UI:** Dashboard for orchestrator operations with team instance controls
-- **Secrets Management:** Ansible Vault support for production secret overrides (passwords, API keys, signing secrets)
-- **Reverse Proxy:** nginx ingress for controlled API exposure with X-Forwarded-For client tracking
-- **Validation:** Security preflight checks in CI and git hooks
-- **Player Launch UX:** One-click launch pages in CTFd with access-aware rendering (web, SSH commands, instructions)
-- **OSINT Static Sync:** Automatic deployment of static OSINT challenge assets (`resources/`) to nginx at `http://192.168.56.10/osint/<challenge>/resources/`
+- **Infrastructure** — Reproducible VM via Vagrant + Ansible, fully re-provisionable
+- **Platform** — CTFd on Docker Compose with automated challenge sync
+- **Challenges** — 6 Linux privesc challenges + web/osint/sandbox templates, all with writeups in `/soluce`
+- **Orchestration** — Per-team Docker instances, TTL-based cleanup, SSH/web launch pages
+- **Dashboard** — Custom CTFd plugin with instance cards, live activity, quick launch
+- **Security** — HMAC-SHA256 signing, per-team rate limiting, instance quotas, Ansible Vault
+- **Monitoring** — Prometheus + Grafana + cAdvisor
 
-## Technology Stack
-
-| Component | Technology |
-|-----------|------------|
-| Provisioning | Vagrant + VirtualBox |
-| Configuration | Ansible |
-| Runtime | Docker + Compose |
-| CTF Platform | CTFd |
-| Validation CI | GitHub Actions |
-| Orchestration | Bash manager + Python API + systemd timer |
+---
 
 ## Quick Start
+
+### First boot
 
 ```bash
 git clone https://github.com/USERNAME/ctfd-platform-custom.git
 cd ctfd-platform-custom
+cp ansible/vars/vault.example.yml ansible/vars/vault.yml
+# Edit vault.yml — fill in passwords and tokens (see Secrets section below)
 vagrant up --provision
 ```
 
+`vagrant up` runs the full Ansible playbook automatically:
+- Starts CTFd, MariaDB, Redis, Prometheus, Grafana
+- Starts `player-instance-api` systemd service (orchestrator)
+- Configures nginx reverse proxy
+- Pre-builds all challenge Docker images
+- Creates the `container-escape` flag on the host
+- Syncs all challenges to CTFd (if `ctfd_api_token` is set in vault.yml)
+
 Access points after provisioning:
 
-- CTFd (static VM IP, stable): http://192.168.56.10
-- CTFd (localhost forwarded port, may auto-correct): http://localhost:8000
-- Orchestrator UI (admin/dev): http://192.168.56.10:8181/ui
-- OSINT static challenges: http://192.168.56.10/osint/\<challenge\>/resources/
+| Service | URL |
+|---------|-----|
+| CTFd | http://192.168.56.10 |
+| Orchestrator Dashboard | http://192.168.56.10/plugins/orchestrator/dashboard |
+| Orchestrator API | http://192.168.56.10:8181 |
+| Grafana | http://192.168.56.10:3000 |
+| OSINT static challenges | http://192.168.56.10/osint/\<challenge\>/resources/ |
 
-If the forwarded port is already occupied on your machine, run `vagrant port` to see the actual host port Vagrant selected.
+---
 
-Networking model:
+### One-time CTFd setup (required on first boot)
 
-- Static VM IP (`192.168.56.10`) uses the host-only adapter and should remain stable across machines.
-- Localhost access (`localhost:<port>`) uses NAT forwarding and may change when a host port is already in use.
-- Port 80 is handled by nginx (front-proxy): routes `/osint/` to `/var/www/osint/`, all other traffic proxied to CTFd.
+1. Open http://192.168.56.10 → complete the CTFd setup wizard (admin account + CTF name)
+2. In CTFd: **Admin → Settings → Access Tokens → Generate** — copy the token
+3. Add it to `ansible/vars/vault.yml`:
+   ```yaml
+   ctfd_api_token: "your-token-here"
+   ```
+4. Re-run the playbook to sync challenges:
+   ```bash
+   vagrant ssh -c "cd /vagrant/ansible && ansible-playbook -i inventory playbooks/main.yml --ask-vault-pass"
+   ```
 
-## Challenge Authoring Workflow
+After this, every subsequent `vagrant up` or playbook run will sync challenges automatically.
 
-Use family templates from [challenges/_templates](challenges/_templates).
+---
 
-Windows example:
-
-```powershell
-./scripts/new-challenge.ps1 -Name [web-01-test] -Family [web]
-./scripts/validate-challenge.ps1 -Path challenges/[web]/[web-01-test]
-vagrant ssh -c "cd /vagrant/challenges/[web]/[web-01-test] && docker compose up -d --build"
-```
-
-Editable values in the first command:
-- `[web-01-test]` = challenge slug/name
-- `[web]` = challenge family (`web`, `osint`, `sandbox`, `reverse`, `pwn`)
-
-Linux/macOS example:
+### Re-provisioning an existing VM
 
 ```bash
-bash ./scripts/new-challenge.sh [web-01-test] --family [web]
-bash ./scripts/validate-challenge.sh challenges/[web]/[web-01-test]
-vagrant ssh -c "cd /vagrant/challenges/[web]/[web-01-test] && docker compose up -d --build"
+# Full re-provision (same as first boot)
+vagrant provision
+
+# Or via Ansible directly (faster, skips VM setup)
+vagrant ssh -c "cd /vagrant/ansible && ansible-playbook -i inventory playbooks/main.yml --ask-vault-pass"
 ```
 
-Detailed guide: [docs/README_CHALLENGES.md](docs/README_CHALLENGES.md)
+---
 
-### OSINT Static Challenges
+## Secrets Setup
 
-OSINT challenges use a `resources/` folder instead of Docker. On provisioning, these files are automatically synced to `/var/www/osint/<challenge>/resources/` by the Ansible playbook.
+Copy the example vault file and fill in your values:
 
-- Place static files under `challenges/osint/<challenge>/resources/`
-- Set `connection_info: http://192.168.56.10/osint/<challenge>/resources/` in `challenge.yml`
-- To force a re-sync: `vagrant ssh -c "python3 /vagrant/scripts/sync_osint_static.py --target /var/www/osint/"`
+```bash
+cp ansible/vars/vault.example.yml ansible/vars/vault.yml
+```
 
-See [docs/README_CHALLENGES.md](docs/README_CHALLENGES.md) for authoring details.
+Edit `ansible/vars/vault.yml`:
 
-## Security Notes
+```yaml
+DB_ROOT_PASSWORD: "strong-password"
+DB_PASSWORD: "strong-password"
+orchestrator_api_token: "generate: openssl rand -hex 32"
+orchestrator_signing_secret: "generate: openssl rand -hex 32"
+orchestrator_ctfd_webhook_token: "generate: openssl rand -hex 32"
+grafana_admin_password: "strong-password"
+ctfd_api_token: ""   # fill after first CTFd setup (see Quick Start)
+```
 
-The platform ships with security defaults enabled and keeps the sensitive parts configurable.
+To encrypt with Ansible Vault (recommended for production):
+```bash
+ansible-vault encrypt ansible/vars/vault.yml
+```
 
-- HMAC signing, rate limits, instance quotas, and webhook validation are built in.
-- Production secrets are handled through Ansible Vault.
-- Security details, threat mapping, and deployment guidance live in [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md) and [docs/VAULT_SETUP.md](docs/VAULT_SETUP.md).
-- Troubleshooting notes remain available in [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
+---
+
+## Challenge Sync
+
+Challenges are synced to CTFd via the API using `sync_challenges_ctfd.py`.
+
+**Automatic** (runs at end of every Ansible playbook if `ctfd_api_token` is set):
+- Creates/updates all challenges from `challenge.yml` files
+- Sets flags, descriptions, hints, point values
+- Links Docker challenges to the orchestrator launch page
+
+**Manual sync** (useful during development):
+```bash
+vagrant ssh -c "python3 /vagrant/scripts/sync_challenges_ctfd.py \
+  --ctfd-url http://127.0.0.1:8900 \
+  --api-token YOUR_TOKEN \
+  --challenges-root /vagrant/challenges \
+  --instance-base-url http://192.168.56.10 \
+  --connection-mode launch-link"
+```
+
+---
+
+## Challenge Authoring
+
+### Create a new challenge
+
+```bash
+# Linux/macOS
+bash ./scripts/new-challenge.sh my-challenge --family linux
+
+# Windows
+./scripts/new-challenge.ps1 -Name my-challenge -Family linux
+```
+
+Each challenge needs at minimum:
+```
+challenges/<category>/<name>/
+  Dockerfile          # Ubuntu base + vulnerability setup
+  docker-compose.yml  # port mapping + image: ctf-<category>-<name>:latest
+  challenge.yml       # name, category, value, flag, hints
+```
+
+### The image: field is required
+
+Every `docker-compose.yml` must have an explicit `image:` tag:
+
+```yaml
+services:
+  my-challenge:
+    build: .
+    image: ctf-linux-my-challenge:latest   # required for pre-build caching
+    ports:
+      - "5030:22"
+    restart: unless-stopped
+```
+
+This allows the Ansible playbook to pre-build the image once at deploy time.
+When a player launches the challenge, the orchestrator reuses the cached image — **launch is instant**.
+
+### Start a challenge container manually (dev/test)
+
+```bash
+vagrant ssh -c "cd /vagrant/challenges/linux/01-suid-classic && docker compose up --build -d"
+ssh player@192.168.56.10 -p 5020   # password: player2026
+```
+
+### Writeups
+
+All challenge writeups live in `/soluce/<category>/<challenge>/README.md`.
+These are for organizers and post-CTF disclosure — never exposed to players.
+
+---
+
+## Linux Privesc Challenge Series
+
+Six SSH-based challenges with increasing difficulty, all in `challenges/linux/`:
+
+| # | Name | Difficulty | Points | Port | Technique |
+|---|------|------------|--------|------|-----------|
+| 01 | suid-classic | Easy | 100 | 5020 | `find` SUID → GTFOBins |
+| 02 | sudo-misconfig | Easy | 150 | 5021 | `sudo vim` → shell escape |
+| 03 | cron-wildcard | Medium | 250 | 5022 | `tar *` wildcard injection |
+| 04 | path-hijack | Medium | 300 | 5023 | Custom SUID binary + PATH |
+| 05 | capabilities | Hard | 400 | 5024 | `python3 cap_setuid+ep` |
+| 06 | container-escape | Hard | 500 | 5025 | Docker socket → host FS |
+
+Credentials: `player` / `player2026`
+
+**Note for container-escape:** The flag lives on the Vagrant VM host at `/opt/ctf-flags/container-escape.txt`. This is created automatically by the Ansible playbook.
+
+---
+
+## Operations Commands
+
+```bash
+# Check all running containers
+vagrant ssh -c "docker ps --format 'table {{.Names}}\t{{.Status}}'"
+
+# Restart CTFd (after plugin changes)
+vagrant ssh -c "docker restart ctfd"
+
+# Restart orchestrator API
+vagrant ssh -c "sudo systemctl restart player-instance-api.service"
+
+# Check orchestrator API logs
+vagrant ssh -c "sudo journalctl -u player-instance-api.service -n 50"
+
+# Reload nginx (after config changes)
+vagrant ssh -c "sudo nginx -t && sudo systemctl reload nginx"
+
+# Pre-build a specific challenge image
+vagrant ssh -c "cd /vagrant/challenges/linux/01-suid-classic && docker compose build"
+```
+
+---
+
+## Repository Structure
+
+```
+.
+├── ansible/
+│   ├── playbooks/main.yml          # Full deploy playbook
+│   ├── templates/                  # Jinja2 templates (nginx, docker-compose, systemd)
+│   └── vars/
+│       ├── main.yml                # Default config values
+│       ├── vault.yml               # Secrets (gitignored, create from vault.example.yml)
+│       └── vault.example.yml       # Template for vault.yml
+├── challenges/
+│   ├── linux/                      # Linux privesc series (01-06)
+│   ├── web/                        # Web challenges
+│   ├── osint/                      # OSINT challenges (static files)
+│   ├── sandbox/                    # Sandbox/misc challenges
+│   └── _templates/                 # Challenge authoring templates
+├── scripts/
+│   ├── player-instance-api.py      # Orchestrator HTTP API (systemd service)
+│   ├── player-instance-manager.sh  # Docker lifecycle manager (start/stop/extend/status)
+│   ├── sync_challenges_ctfd.py     # Challenge sync script (CTFd API)
+│   ├── sync_osint_static.py        # OSINT static file sync
+│   └── ctfd-orchestrator-plugin/   # CTFd plugin (dashboard, launch pages, API endpoints)
+├── soluce/
+│   └── linux/                      # Writeups for all linux challenges
+├── docs/                           # Extended documentation
+└── README.md                       # This file
+```
+
+---
 
 ## Documentation
 
-| Document | Purpose | Audience |
-|----------|---------|----------|
-| [docs/REPO_CONTENT_GUIDELINES.md](docs/REPO_CONTENT_GUIDELINES.md) | Defines what belongs in the core platform, operations layer, and challenge layer | Maintainers, contributors |
-| [docs/CUSTOM_REPO_WORKFLOW.md](docs/CUSTOM_REPO_WORKFLOW.md) | Standard Git workflow for this single custom repository | Maintainers, platform teams |
-| [docs/README_CHALLENGES.md](docs/README_CHALLENGES.md) | Challenge authoring and deployment workflow, template structure, validation rules | CTF authors, challenge creators |
-| [docs/PLAYER_INSTANCE_ORCHESTRATOR.md](docs/PLAYER_INSTANCE_ORCHESTRATOR.md) | Orchestrator API reference, endpoints, HMAC request signing, team quotas, audit logs | Developers, DevOps, API consumers |
-
-### Optional Guides
-
-These are useful, but they are not required for day-1 deployment:
-
-- [docs/WORKFLOW_PRIORITIES.md](docs/WORKFLOW_PRIORITIES.md)
-- [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md)
-- [docs/VAULT_SETUP.md](docs/VAULT_SETUP.md)
-- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
-- [docs/TROUBLESHOOTING.md#operations-command-cookbook](docs/TROUBLESHOOTING.md#operations-command-cookbook)
-- [docs/MONITORING.md](docs/MONITORING.md)
-- [docs/CTFD_ORCHESTRATOR_INTEGRATION.md](docs/CTFD_ORCHESTRATOR_INTEGRATION.md)
-- [docs/CTFD_CHALLENGE_SYNC.md](docs/CTFD_CHALLENGE_SYNC.md)
-- [docs/KUBERNETES_EXTENSION.md](docs/KUBERNETES_EXTENSION.md)
-
-## Repository Strategy
-
-This project now follows a single-repository model:
-
-1. `main` is the production-ready reference branch.
-2. Feature branches are merged by PR into `main`.
-3. No upstream template synchronization is required.
-
-### Key Feature Documentation
-
-**Orchestrator API (New in v2.0):**
-- Authentication: Token-based (`X-Orchestrator-Token`) for GET, HMAC-SHA256 signatures for POST
-- Endpoints: `/status`, `/start`, `/stop`, `/cleanup`, `/ctfd/event` (webhook trigger)
-- Security: Per-team rate limiting (30 req/min) + per-client (60 req/min), instance quotas (max 3 active)
-- Audit: All events logged as JSON lines with timestamp, client IP, team, challenge, HTTP status
-
-**Player Access Rendering (Current):**
-- Challenges with spawnable runtime (`docker-compose.yml`) are orchestrated
-- Static challenges are excluded from launch orchestration
-- Launch page renders the right access mode:
-	- `web`: browser button + optional auto-redirect
-	- `ssh`: copy-ready commands for Linux/macOS and Windows PowerShell
-	- `instruction`: textual instructions when no direct web endpoint applies
-
-**Vault Integration (New in v2.0):**
-- **Development:** Defaults in `ansible/vars/main.yml`, vault optional
-- **Production:** Encrypted `ansible/vars/vault.yml` overrides all secrets via `*_effective` variables
-- **CI/CD:** Vault password via GitHub Secrets or GitLab CI Variables, passed at runtime
-
-**Challenges (Updated):**
-- New warmup challenge: `challenges/web/simple-login/` for testing orchestrator deployment
-- New SSH/VM example: `challenges/sandbox/ssh-lab/` with explicit SSH access rendering
-- New instruction-only OSINT example: `challenges/osint/template-example/`
-- Support for arbitrary Docker Compose services (not limited to specific languages)
-- Per-team isolation via orchestrator port mapping
-
-### Quick Reference: Access Points
-
-After `vagrant up --provision`:
-
-| Service | URL | Port | Purpose |
-|---------|-----|------|---------|
-| **CTFd (Static VM IP)** | http://192.168.56.10 | 80 (nginx → CTFd) | Stable endpoint via host-only network |
-| **CTFd (Localhost Forwarded)** | http://localhost:8000 | 8000+ (Vagrant auto-correct) | NAT forwarding, host port may change |
-| **OSINT Static Files** | http://192.168.56.10/osint/ | 80 (nginx, same proxy) | Served from `/var/www/osint/` |
-| **Orchestrator API** | http://192.168.56.10:8181 | 8181 (proxied) | Challenge instance control |
-| **Orchestrator UI** | http://192.168.56.10:8181/ui | 8181 | Web dashboard |
+| Document | Purpose |
+|----------|---------|
+| [docs/README_CHALLENGES.md](docs/README_CHALLENGES.md) | Challenge authoring, templates, validation |
+| [docs/PLAYER_INSTANCE_ORCHESTRATOR.md](docs/PLAYER_INSTANCE_ORCHESTRATOR.md) | Orchestrator API reference |
+| [docs/VAULT_SETUP.md](docs/VAULT_SETUP.md) | Ansible Vault setup for production |
+| [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md) | Security model and threat mapping |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues and fixes |
+| [docs/MONITORING.md](docs/MONITORING.md) | Prometheus + Grafana setup |
+| [docs/WORKFLOW_PRIORITIES.md](docs/WORKFLOW_PRIORITIES.md) | Dev workflow cheatsheet |
