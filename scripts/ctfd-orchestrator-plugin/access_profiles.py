@@ -160,8 +160,8 @@ def build_access_methods(
             {
                 "type": "ssh",
                 "label": "SSH Command",
-                "linux": f"ssh {ssh_user}@{player_host} -p {target_port}",
-                "windows": f"ssh {ssh_user}@{player_host} -p {target_port}",
+                "linux": f"ssh {ssh_user}@{player_host} -p {target_port} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null",
+                "windows": f"ssh {ssh_user}@{player_host} -p {target_port} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null",
             }
         )
 

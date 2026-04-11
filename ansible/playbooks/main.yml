@@ -46,6 +46,7 @@
         orchestrator_signing_secret_effective: "{{ vault_overrides.orchestrator_signing_secret | default(orchestrator_signing_secret) }}"
         orchestrator_ctfd_webhook_token_effective: "{{ vault_overrides.orchestrator_ctfd_webhook_token | default(orchestrator_ctfd_webhook_token) }}"
         grafana_admin_password_effective: "{{ vault_overrides.grafana_admin_password | default(grafana_admin_password) }}"
+        ctfd_api_token_effective: "{{ vault_overrides.ctfd_api_token | default(ctfd_api_token) }}"
       no_log: true
 
     - name: Resolve orchestrator quota profile
@@ -306,6 +307,21 @@
       delay: 10
 
 
+    - name: Pre-build all Docker challenge images
+      shell: |
+        set -e
+        find /vagrant/challenges -name docker-compose.yml | while read compose_file; do
+          dir=$(dirname "$compose_file")
+          if grep -q '^  build:' "$compose_file" 2>/dev/null || grep -q '^\s*build:' "$compose_file" 2>/dev/null; then
+            echo "[pre-build] Building $dir"
+            docker compose -f "$compose_file" build --quiet 2>&1 | tail -3 || true
+          fi
+        done
+      args:
+        executable: /bin/bash
+      changed_when: false
+      failed_when: false
+
     - name: Sync OSINT static challenge assets to web root
       command: >
         python3 /vagrant/scripts/sync_osint_static.py
@@ -314,6 +330,35 @@
       register: osint_sync_result
       changed_when: "'Synchronisé' in osint_sync_result.stdout or 'copied' in osint_sync_result.stdout"
       failed_when: false
+
+    - name: Create /opt/ctf-flags directory (container-escape flag host path)
+      file:
+        path: /opt/ctf-flags
+        state: directory
+        mode: '0755'
+
+    - name: Deploy container-escape flag on host
+      copy:
+        content: "CTF{docker_socket_escape_to_host}\n"
+        dest: /opt/ctf-flags/container-escape.txt
+        mode: '0644'
+
+    - name: Sync challenges to CTFd via API
+      command: >
+        python3 /vagrant/scripts/sync_challenges_ctfd.py
+        --ctfd-url http://127.0.0.1:{{ ctfd_internal_port }}
+        --api-token {{ ctfd_api_token_effective }}
+        --challenges-root /vagrant/challenges
+        --instance-base-url http://{{ ctf_vm_ip }}
+        --connection-mode launch-link
+      register: challenges_sync_result
+      changed_when: false
+      failed_when: false
+      when: ctfd_api_token_effective | length > 0
+
+    - name: Show challenge sync result
+      debug:
+        msg: "{{ challenges_sync_result.stdout_lines | default(['(skipped — set ctfd_api_token in vault.yml)']) }}"
 
     - name: Success message
       debug:

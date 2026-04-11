@@ -14,3 +14,5 @@ orchestrator_api_token: "REPLACE_ME"
 orchestrator_signing_secret: "REPLACE_ME"
 orchestrator_ctfd_webhook_token: "REPLACE_ME"
 grafana_admin_password: "REPLACE_ME"
+# Generate once: CTFd Admin Panel → Settings → Access Tokens → Generate
+ctfd_api_token: "REPLACE_ME"
