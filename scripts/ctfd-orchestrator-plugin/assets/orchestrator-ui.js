@@ -270,20 +270,46 @@
           container.innerHTML = "<div style=\"padding:11px 13px;color:var(--muted);font-size:13px\">No challenges available</div>";
           return;
         }
-        var html = "";
+
+        var running = [];
+        var offline = [];
         for (var j = 0; j < challenges.length; j++) {
           var ch = challenges[j];
-          var isRun = !!runningIds[ch.id];
-          var pts   = ch.value ? ch.value + " pts" : "";
-          html += "<div class=\"ql-item" + (isRun ? " running" : "") +
+          if (runningIds[ch.id]) { running.push(ch); } else { offline.push(ch); }
+        }
+
+        function qlRow(ch, isRun) {
+          var pts = ch.value ? ch.value + " pts" : "";
+          return "<div class=\"ql-item" + (isRun ? " running" : "") +
             "\" onclick=\"window.location='/plugins/orchestrator/launch?challenge_id=" + ch.id + "'\">" +
             "<div class=\"ql-name\">" + esc(ch.name) + "</div>" +
             "<div class=\"ql-right\">" +
               (isRun ? "<span class=\"ql-run-lbl\">Running \u25CF</span>" : "") +
               (pts    ? "<span class=\"ql-pts\">" + pts + "</span>" : "") +
-            "</div>" +
-            "</div>";
+            "</div></div>";
         }
+
+        var html = "";
+
+        /* Running instances — always visible */
+        for (var r = 0; r < running.length; r++) {
+          html += qlRow(running[r], true);
+        }
+
+        /* Offline challenges — collapsed by default, expand on click */
+        if (offline.length) {
+          var offlineRows = "";
+          for (var o = 0; o < offline.length; o++) {
+            offlineRows += qlRow(offline[o], false);
+          }
+          html += "<details class=\"ql-dropdown\">" +
+            "<summary class=\"ql-dropdown-toggle\">" +
+              "All challenges <span class=\"ql-count\">" + offline.length + "</span>" +
+            "</summary>" +
+            "<div class=\"ql-dropdown-body\">" + offlineRows + "</div>" +
+            "</details>";
+        }
+
         container.innerHTML = html;
       });
     });
