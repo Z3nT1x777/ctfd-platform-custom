@@ -740,6 +740,27 @@ class Handler(BaseHTTPRequestHandler):
             self._json_response(401, {"ok": False, "error": "unauthorized"})
             return
 
+        # Admin actions — token auth only, no signature required (internal admin use)
+        if path == "/admin/kill-all":
+            payload = admin_kill_all()
+            self._audit_http("admin_kill_all", 200, path)
+            _persist_rate_state()
+            self._json_response(200, payload)
+            return
+
+        if path == "/admin/sync":
+            payload = admin_sync_challenges()
+            self._audit_http("admin_sync", 200 if payload.get("ok") else 500, path)
+            self._json_response(200 if payload.get("ok") else 500, payload)
+            return
+
+        if path == "/admin/prebuild":
+            payload = admin_prebuild_images()
+            self._audit_http("admin_prebuild", 200, path)
+            self._json_response(200, payload)
+            return
+
+        # Player-facing routes require signature verification
         signature_ok, signature_reason = self._signature_valid(raw_body)
         if not signature_ok:
             self._audit_http("signature_rejected", 401, path, team=team, challenge=challenge, detail=signature_reason)
@@ -760,26 +781,6 @@ class Handler(BaseHTTPRequestHandler):
             status, payload = self._handle_ctfd_event(data)
             self._audit_http("ctfd_event", status, path, team=team, challenge=challenge, detail=str(payload.get("mapped_event", "")))
             self._json_response(status, payload)
-            return
-
-        # Admin actions — same token auth, no signature required
-        if path == "/admin/kill-all":
-            payload = admin_kill_all()
-            self._audit_http("admin_kill_all", 200, path)
-            _persist_rate_state()
-            self._json_response(200, payload)
-            return
-
-        if path == "/admin/sync":
-            payload = admin_sync_challenges()
-            self._audit_http("admin_sync", 200 if payload.get("ok") else 500, path)
-            self._json_response(200 if payload.get("ok") else 500, payload)
-            return
-
-        if path == "/admin/prebuild":
-            payload = admin_prebuild_images()
-            self._audit_http("admin_prebuild", 200, path)
-            self._json_response(200, payload)
             return
 
         status, payload = self._execute_action(path, data)
