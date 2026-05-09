@@ -14,6 +14,8 @@ import json
 import os
 import re
 import time
+import urllib.request
+import urllib.error
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
@@ -106,8 +108,8 @@ pre#log{background:#0a1120;border:1px solid var(--line);border-radius:8px;paddin
 </div>
 
 <script>
-const TOKEN = "{{ orch_token }}";
-const BASE  = "{{ orch_base }}";
+// Proxy route: browser → CTFd plugin → orchestrator (server-side, no token in browser)
+const BASE = "/plugins/orchestrator/admin/proxy";
 
 function log(msg) {
   const el = document.getElementById("log");
@@ -123,7 +125,7 @@ async function runAction(name) {
   try {
     const res = await fetch(BASE + "/admin/" + name, {
       method: "POST",
-      headers: { "Authorization": "Bearer " + TOKEN, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: "{}"
     });
     const data = await res.json();
@@ -142,9 +144,7 @@ async function runAction(name) {
 
 async function refreshInstances() {
   try {
-    const res = await fetch(BASE + "/admin/instances", {
-      headers: { "Authorization": "Bearer " + TOKEN }
-    });
+    const res = await fetch(BASE + "/admin/instances");
     const data = await res.json();
     const container = document.getElementById("instances-body");
     if (!data.ok || !data.instances || data.instances.length === 0) {
@@ -2222,13 +2222,43 @@ class OrchestrationPlugin:
             """Orchestrator admin panel — sync, prebuild, kill-all, instance status."""
             if not self._is_admin_user():
                 return "Forbidden — accès réservé aux administrateurs CTFd.", 403
-            orch_base = os.getenv("ORCHESTRATOR_API_BASE", "http://host.docker.internal:18181")
-            orch_token = os.getenv("ORCHESTRATOR_API_TOKEN", "")
-            return render_template_string(
-                ADMIN_TEMPLATE,
-                orch_base=orch_base,
-                orch_token=orch_token,
-            )
+            return render_template_string(ADMIN_TEMPLATE)
+
+        @bp.route("/admin/proxy/<path:subpath>", methods=["GET", "POST"])
+        @authed_only
+        def admin_proxy(subpath):
+            """Server-side proxy: browser → CTFd plugin → orchestrator.
+            Keeps the orchestrator token off the browser and avoids host.docker.internal DNS
+            issues on client machines."""
+            if not self._is_admin_user():
+                return jsonify({"ok": False, "error": "Forbidden"}), 403
+
+            orch_base = os.getenv(
+                "ORCHESTRATOR_API_URL",
+                os.getenv("ORCHESTRATOR_API_BASE", "http://host.docker.internal:18181"),
+            ).rstrip("/")
+            token = os.getenv("ORCHESTRATOR_API_TOKEN", "")
+            url = f"{orch_base}/{subpath}"
+
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+            data = b"{}" if request.method == "POST" else None
+
+            try:
+                req_obj = urllib.request.Request(url, data=data, headers=headers, method=request.method)
+                with urllib.request.urlopen(req_obj, timeout=90) as resp:
+                    body = json.loads(resp.read())
+                return jsonify(body)
+            except urllib.error.HTTPError as exc:
+                try:
+                    body = json.loads(exc.read())
+                except Exception:
+                    body = {"ok": False, "error": f"HTTP {exc.code}"}
+                return jsonify(body), exc.code
+            except Exception as exc:
+                return jsonify({"ok": False, "error": str(exc)}), 502
 
         @bp.route("/ui", methods=["GET"])
         @authed_only
