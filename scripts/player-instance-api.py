@@ -37,6 +37,7 @@ CHALLENGES_ROOT = os.environ.get("ORCHESTRATOR_CHALLENGES_ROOT", "/vagrant/chall
 SYNC_SCRIPT = os.environ.get("ORCHESTRATOR_SYNC_SCRIPT", "/vagrant/scripts/sync_challenges_ctfd.py")
 CTFD_BASE_URL = os.environ.get("ORCHESTRATOR_CTFD_BASE_URL", "http://localhost:8000")
 CTFD_API_TOKEN = os.environ.get("ORCHESTRATOR_CTFD_API_TOKEN", "")
+PUBLIC_URL = os.environ.get("ORCHESTRATOR_PUBLIC_URL", f"http://{API_BIND}")
 
 # Rate-limit state persistence
 RATE_STATE_PATH = os.environ.get("ORCHESTRATOR_RATE_STATE_PATH", "/var/lib/ctf/rate_state.json")
@@ -290,7 +291,7 @@ def admin_sync_challenges() -> dict:
         "--ctfd-url", CTFD_BASE_URL,
         "--api-token", CTFD_API_TOKEN,
         "--challenges-root", CHALLENGES_ROOT,
-        "--instance-base-url", f"http://{API_BIND}",
+        "--instance-base-url", PUBLIC_URL,
         "--connection-mode", "launch-link",
     ]
     try:
