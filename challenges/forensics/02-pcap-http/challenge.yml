@@ -2,11 +2,13 @@ name: pcap-http
 category: forensics
 value: 100
 type: static
-connection_info: http://192.168.56.10/files/forensics/02-pcap-http/capture.pcap
+connection_info: ""
 description: |
   Une capture réseau a été effectuée sur un poste compromis.
   Un mot de passe a été transmis en clair sur le réseau interne.
   Analyse le trafic et retrouve les credentials exfiltrés.
+
+  [capture.pcap](http://192.168.56.10/files/forensics/02-pcap-http/capture.pcap)
 hint1: |
   Ouvre le fichier avec Wireshark ou tcpdump.
 hint2: |

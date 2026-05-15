@@ -2,11 +2,13 @@ name: apache-logs
 category: forensics
 value: 75
 type: static
-connection_info: http://192.168.56.10/files/forensics/01-apache-logs/access.log
+connection_info: ""
 description: |
   Un serveur web interne a été compromis. L'équipe sécurité t'a transmis les logs Apache
   de la nuit de l'incident. Une donnée sensible a été exfiltrée via une requête HTTP.
   Retrouve-la.
+
+  [access.log](http://192.168.56.10/files/forensics/01-apache-logs/access.log)
 hint1: |
   Cherche une requête inhabituelle parmi les centaines de requêtes normales.
 hint2: |

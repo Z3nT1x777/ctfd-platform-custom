@@ -2,11 +2,13 @@ name: stego-lsb
 category: forensics
 value: 150
 type: static
-connection_info: http://192.168.56.10/files/forensics/03-stego-lsb/landscape.png
+connection_info: ""
 description: |
   Un agent a transmis un message dissimulé dans une photo anodine de paysage.
   L'image semble normale... mais contient-elle vraiment seulement des pixels ?
   Retrouve le message caché.
+
+  [landscape.png](http://192.168.56.10/files/forensics/03-stego-lsb/landscape.png)
 hint1: |
   La stéganographie LSB (Least Significant Bit) cache des données dans les bits de poids faible des pixels.
 hint2: |

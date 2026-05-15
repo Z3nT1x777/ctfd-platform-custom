@@ -2,11 +2,13 @@ name: c-checker
 category: reverse
 value: 150
 type: static
-connection_info: http://192.168.56.10/files/reverse/02-c-checker/crackme
+connection_info: ""
 description: |
   Un binaire Linux vérifie une clé de licence.
   Télécharge-le, analyse-le et trouve la bonne clé.
   Outils recommandés : strings, ltrace, Ghidra, gdb.
+
+  [crackme](http://192.168.56.10/files/reverse/02-c-checker/crackme)
 hint1: |
   Commence par la commande 'strings ./crackme' — elle révèle souvent les constantes hardcodées.
 hint2: |

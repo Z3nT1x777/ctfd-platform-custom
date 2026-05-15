@@ -2,11 +2,13 @@ name: pcap-dns
 category: forensics
 value: 200
 type: static
-connection_info: http://192.168.56.10/files/forensics/04-pcap-dns/dns_traffic.pcap
+connection_info: ""
 description: |
   Un malware a exfiltré des données sensibles en utilisant le protocole DNS comme canal caché.
   La capture réseau montre un comportement DNS anormal.
   Reconstitue le message exfiltré.
+
+  [dns_traffic.pcap](http://192.168.56.10/files/forensics/04-pcap-dns/dns_traffic.pcap)
 hint1: |
   Ouvre le fichier dans Wireshark et filtre : dns
 hint2: |

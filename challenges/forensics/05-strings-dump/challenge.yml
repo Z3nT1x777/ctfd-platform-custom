@@ -2,11 +2,13 @@ name: strings-dump
 category: forensics
 value: 250
 type: static
-connection_info: http://192.168.56.10/files/forensics/05-strings-dump/memdump.strings
+connection_info: ""
 description: |
   Le SOC a réalisé une extraction des chaînes imprimables d'un processus suspect en mémoire.
   Parmi des milliers de chaînes, une seule contient le flag.
   Méthode : grep, ou sois patient...
+
+  [memdump.strings](http://192.168.56.10/files/forensics/05-strings-dump/memdump.strings)
 hint1: |
   La commande Unix 'strings' extrait toutes les chaînes imprimables d'un binaire ou d'un dump.
 hint2: |

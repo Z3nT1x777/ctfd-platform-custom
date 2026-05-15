@@ -62,19 +62,22 @@ This is fully automatic and requires no manual update.
 For forensics and reverse challenges that serve a downloadable file (no interactive instance needed):
 
 - Set `type: static` in `challenge.yml`
-- Set `connection_info` to the direct download URL
+- Leave `connection_info: ""` (empty)
+- Add a markdown download link in `description` — CTFd renders descriptions as markdown, so players see a clean clickable filename instead of a raw URL
 
 ```yaml
 name: apache-logs
 category: forensics
 type: static
-connection_info: http://192.168.56.10/files/forensics/01-apache-logs/access.log
+connection_info: ""
 description: |
   Analyse les logs Apache et retrouve la donnée exfiltrée.
+
+  [access.log](http://192.168.56.10/files/forensics/01-apache-logs/access.log)
 flag: CTF{...}
 ```
 
-The sync script will push the `connection_info` value directly to CTFd — players see the download link on the challenge card without launching any instance.
+The sync script pushes the description markdown to CTFd — players see a clickable filename link directly in the challenge card body.
 
 **How the files are generated:**
 

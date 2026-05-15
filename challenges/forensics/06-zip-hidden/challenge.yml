@@ -2,12 +2,14 @@ name: zip-hidden
 category: forensics
 value: 250
 type: static
-connection_info: http://192.168.56.10/files/forensics/06-zip-hidden/evidence.zip
+connection_info: ""
 description: |
   Un fichier ZIP suspect a été récupéré sur la machine d'un employé.
   Il semble ne contenir que des documents anodins... mais le format ZIP
   permet de cacher des données dans des endroits inattendus.
   Trouve ce qui est dissimulé.
+
+  [evidence.zip](http://192.168.56.10/files/forensics/06-zip-hidden/evidence.zip)
 hint1: |
   Le format ZIP comporte plusieurs zones de métadonnées : commentaires, champs extra, etc.
 hint2: |
