@@ -1,9 +1,8 @@
 name: pcap-http
 category: forensics
 value: 100
-type: docker
-connection_mode: download
-container_port: 5000
+type: static
+connection_info: http://192.168.56.10/files/forensics/02-pcap-http/capture.pcap
 description: |
   Une capture réseau a été effectuée sur un poste compromis.
   Un mot de passe a été transmis en clair sur le réseau interne.
@@ -15,4 +14,3 @@ hint2: |
 hint3: |
   Dans Wireshark : clic droit sur un paquet HTTP → "Follow TCP Stream" pour voir la conversation complète.
 flag: CTF{wireshark_http_flag_found}
-port: 5041

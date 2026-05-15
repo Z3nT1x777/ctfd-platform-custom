@@ -1,9 +1,8 @@
 name: strings-dump
 category: forensics
 value: 250
-type: docker
-connection_mode: download
-container_port: 5000
+type: static
+connection_info: http://192.168.56.10/files/forensics/05-strings-dump/memdump.strings
 description: |
   Le SOC a réalisé une extraction des chaînes imprimables d'un processus suspect en mémoire.
   Parmi des milliers de chaînes, une seule contient le flag.
@@ -15,4 +14,3 @@ hint2: |
 hint3: |
   Si grep ne trouve rien directement, essaie strings -n 4 ou cherche des motifs inhabituels. Le flag est peut-être encodé une fois.
 flag: CTF{strings_memdump_analysis}
-port: 5044

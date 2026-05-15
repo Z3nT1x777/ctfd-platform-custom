@@ -177,6 +177,56 @@
         group: vagrant
         mode: '0755'
 
+    - name: Create static files web root
+      file:
+        path: /var/www/ctf/files
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
+    - name: Generate forensics static files from Docker images
+      shell: |
+        set -e
+        img="ctf-static-forensics-{{ item.name }}"
+        docker build -q -t "$img" \
+          -f /vagrant/challenges/forensics/{{ item.name }}/Dockerfile \
+          /vagrant/challenges/forensics/
+        mkdir -p /var/www/ctf/files/forensics/{{ item.name }}
+        cid=$(docker create "$img")
+        docker cp "$cid:/data/{{ item.file }}" /var/www/ctf/files/forensics/{{ item.name }}/{{ item.file }}
+        docker rm "$cid"
+      args:
+        executable: /bin/bash
+        creates: /var/www/ctf/files/forensics/{{ item.name }}/{{ item.file }}
+      loop:
+        - { name: 01-apache-logs,  file: access.log }
+        - { name: 02-pcap-http,    file: capture.pcap }
+        - { name: 03-stego-lsb,    file: landscape.png }
+        - { name: 04-pcap-dns,     file: dns_traffic.pcap }
+        - { name: 05-strings-dump, file: memdump.strings }
+        - { name: 06-zip-hidden,   file: evidence.zip }
+      failed_when: false
+
+    - name: Generate reverse static files from Docker images
+      shell: |
+        set -e
+        img="ctf-static-reverse-{{ item.name }}"
+        docker build -q -t "$img" \
+          -f /vagrant/challenges/reverse/{{ item.name }}/Dockerfile \
+          /vagrant/challenges/
+        mkdir -p /var/www/ctf/files/reverse/{{ item.name }}
+        cid=$(docker create "$img")
+        docker cp "$cid:/data/{{ item.file }}" /var/www/ctf/files/reverse/{{ item.name }}/{{ item.file }}
+        docker rm "$cid"
+      args:
+        executable: /bin/bash
+        creates: /var/www/ctf/files/reverse/{{ item.name }}/{{ item.file }}
+      loop:
+        - { name: 02-c-checker,   file: crackme }
+        - { name: 03-xor-checker, file: xor_checker }
+      failed_when: false
+
     - name: Install CTFd frontend nginx config (port 80 + /osint/ static)
       template:
         src: ../templates/ctfd-nginx.conf.j2

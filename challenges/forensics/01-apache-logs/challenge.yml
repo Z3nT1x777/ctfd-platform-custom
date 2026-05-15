@@ -1,9 +1,8 @@
 name: apache-logs
 category: forensics
 value: 75
-type: docker
-connection_mode: download
-container_port: 5000
+type: static
+connection_info: http://192.168.56.10/files/forensics/01-apache-logs/access.log
 description: |
   Un serveur web interne a été compromis. L'équipe sécurité t'a transmis les logs Apache
   de la nuit de l'incident. Une donnée sensible a été exfiltrée via une requête HTTP.
@@ -15,4 +14,3 @@ hint2: |
 hint3: |
   Filtre les requêtes POST ou les paramètres contenant des caractères '=' (base64). Décode le résultat.
 flag: CTF{apache_log_never_lies}
-port: 5040

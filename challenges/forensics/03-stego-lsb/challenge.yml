@@ -1,9 +1,8 @@
 name: stego-lsb
 category: forensics
 value: 150
-type: docker
-connection_mode: download
-container_port: 5000
+type: static
+connection_info: http://192.168.56.10/files/forensics/03-stego-lsb/landscape.png
 description: |
   Un agent a transmis un message dissimulé dans une photo anodine de paysage.
   L'image semble normale... mais contient-elle vraiment seulement des pixels ?
@@ -15,4 +14,3 @@ hint2: |
 hint3: |
   Le message est caché dans le bit de poids faible du canal Rouge, pixel par pixel, ligne par ligne. Lis les bits et regroupe-les par 8 (ASCII).
 flag: CTF{lsb_pixels_dont_lie}
-port: 5042

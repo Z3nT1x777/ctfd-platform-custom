@@ -1,9 +1,8 @@
 name: xor-checker
 category: reverse
 value: 200
-type: docker
-connection_mode: download
-container_port: 5000
+type: static
+connection_info: http://192.168.56.10/files/reverse/03-xor-checker/xor_checker
 description: |
   Un binaire Linux valide une clé secrète en appliquant un XOR octet par octet
   avec un masque interne répété.
@@ -17,4 +16,3 @@ hint2: |
 hint3: |
   Le masque est la chaîne ASCII "BLUE" (0x42 0x4C 0x55 0x45).
 flag: CTF{xor_repeating_key_weak}
-port: 5051

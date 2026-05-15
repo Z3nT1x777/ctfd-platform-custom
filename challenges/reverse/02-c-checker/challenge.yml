@@ -1,9 +1,8 @@
 name: c-checker
 category: reverse
 value: 150
-type: docker
-connection_mode: download
-container_port: 5000
+type: static
+connection_info: http://192.168.56.10/files/reverse/02-c-checker/crackme
 description: |
   Un binaire Linux vérifie une clé de licence.
   Télécharge-le, analyse-le et trouve la bonne clé.
@@ -15,4 +14,3 @@ hint2: |
 hint3: |
   La clé est construite en concaténant trois tableaux de caractères. Cherche des séquences ASCII dans les sections .rodata du binaire.
 flag: CTF{compare_hardcoded}
-port: 5050

@@ -9,6 +9,14 @@ server {
         try_files $uri $uri/ =404;
     }
 
+    # Static downloadable files (forensics, reverse)
+    location /files/ {
+        alias /var/www/ctf/files/;
+        autoindex off;
+        add_header Content-Disposition 'attachment';
+        try_files $uri =404;
+    }
+
     # CTFd reverse proxy
     location / {
         proxy_pass http://127.0.0.1:{{ ctfd_internal_port }};

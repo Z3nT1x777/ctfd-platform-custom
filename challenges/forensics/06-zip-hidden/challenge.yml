@@ -1,9 +1,8 @@
 name: zip-hidden
 category: forensics
 value: 250
-type: docker
-connection_mode: download
-container_port: 5000
+type: static
+connection_info: http://192.168.56.10/files/forensics/06-zip-hidden/evidence.zip
 description: |
   Un fichier ZIP suspect a été récupéré sur la machine d'un employé.
   Il semble ne contenir que des documents anodins... mais le format ZIP
@@ -16,4 +15,3 @@ hint2: |
 hint3: |
   En Python : zipfile.ZipFile('secret.zip').comment — les commentaires ZIP ne sont pas visibles avec un simple unzip.
 flag: CTF{zip_comment_forensics}
-port: 5045
