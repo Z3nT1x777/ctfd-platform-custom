@@ -42,7 +42,7 @@ ADMIN_TEMPLATE = """<!doctype html>
 <style>
 :root{--bg:#070d16;--card:#101a2a;--surface:#0d1624;--fg:#e6edf7;--muted:#8b949e;--ok:#34d399;--bad:#f87171;--warn:#f59e0b;--line:#2a3548;--blue:#2563eb;}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--fg);font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;font-size:14px;padding:28px;}
+body{background:var(--bg);color:var(--fg);font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif;font-size:14px;padding:28px;}
 h1{font-size:1.4rem;margin-bottom:4px;}
 .sub{color:var(--muted);margin-bottom:24px;font-size:13px;}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:24px;}
@@ -70,31 +70,31 @@ pre#log{background:#0a1120;border:1px solid var(--line);border-radius:8px;paddin
 </style>
 </head>
 <body>
-<h1>⚙️ Orchestrator — Admin</h1>
+<h1>Orchestrator — Admin</h1>
 <p class="sub">Actions réservées aux administrateurs CTFd</p>
 
 <div id="instances-section">
-  <h3>📊 Instances actives</h3>
+  <h3>Instances actives</h3>
   <div id="instances-body"><em style="color:var(--muted)">Chargement...</em></div>
 </div>
 
 <div class="grid">
   <div class="action-card">
-    <h3>🔄 Sync Challenges</h3>
+    <h3>Sync Challenges</h3>
     <p>Importe ou met à jour tous les challenges depuis le dossier <code>/vagrant/challenges</code> vers CTFd (flags, hints, descriptions).</p>
     <button class="btn btn-blue" onclick="runAction('sync')">
       <span class="spinner" id="sp-sync"></span>Lancer la sync
     </button>
   </div>
   <div class="action-card">
-    <h3>🏗️ Pre-build Images</h3>
+    <h3>Pre-build Images</h3>
     <p>Construit toutes les images Docker des challenges. Indispensable après ajout d'un nouveau challenge pour éviter les timeouts au lancement.</p>
     <button class="btn btn-green" onclick="runAction('prebuild')">
       <span class="spinner" id="sp-prebuild"></span>Build all images
     </button>
   </div>
   <div class="action-card">
-    <h3>💀 Kill All Instances</h3>
+    <h3>Kill All Instances</h3>
     <p>Arrête immédiatement toutes les instances joueurs en cours. Utile pour libérer des ressources ou avant un redémarrage.</p>
     <button class="btn btn-red" onclick="runAction('kill-all')">
       <span class="spinner" id="sp-kill-all"></span>Kill all
@@ -103,7 +103,7 @@ pre#log{background:#0a1120;border:1px solid var(--line);border-radius:8px;paddin
 </div>
 
 <div class="log-panel">
-  <h3>📋 Log de sortie</h3>
+  <h3>Output log</h3>
   <pre id="log">En attente d'une action...</pre>
 </div>
 
@@ -147,7 +147,7 @@ async function runAction(name) {
   const spinner = document.getElementById("sp-" + name);
   if (spinner) spinner.style.display = "inline-block";
   document.querySelectorAll(".btn").forEach(b => b.disabled = true);
-  log("⏳ " + name + " en cours...");
+  log(name + " in progress...");
   try {
     const res = await fetch(BASE + "/admin/" + name, {
       method: "POST",
@@ -158,9 +158,9 @@ async function runAction(name) {
     let out = JSON.stringify(data, null, 2);
     if (data.stdout) out = data.stdout + (data.stderr ? "\\n--- stderr ---\\n" + data.stderr : "");
     if (name === "kill-all") out = "Killed: " + (data.killed || []).join(", ") + (data.errors && data.errors.length ? "\\nErrors: " + data.errors.join(", ") : "");
-    log((data.ok !== false ? "✅ " : "❌ ") + out);
+    log((data.ok !== false ? "[OK] " : "[ERROR] ") + out);
   } catch(e) {
-    log("❌ Erreur réseau : " + e.message);
+    log("[ERROR] Erreur réseau : " + e.message);
   } finally {
     if (spinner) spinner.style.display = "none";
     document.querySelectorAll(".btn").forEach(b => b.disabled = false);
@@ -226,7 +226,7 @@ UI_TEMPLATE = """<!doctype html>
   --blue-text:#6cb6ff;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;display:flex;min-height:100vh;}
+body{background:var(--bg);color:var(--text);font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif;font-size:14px;line-height:1.5;display:flex;min-height:100vh;}
 a{color:inherit;text-decoration:none;}
 button{cursor:pointer;font-family:inherit;font-size:inherit;}
 
@@ -237,7 +237,7 @@ button{cursor:pointer;font-family:inherit;font-size:inherit;}
 .nav-item{display:flex;align-items:center;gap:8px;padding:6px 16px;border-radius:6px;margin:1px 8px;color:var(--muted);font-size:13px;transition:background .12s,color .12s;}
 .nav-item:hover{background:rgba(255,255,255,.06);color:var(--text);}
 .nav-item.active{background:rgba(255,255,255,.08);color:var(--text);}
-.nav-icon{font-size:14px;width:18px;text-align:center;}
+.nav-icon{font-size:14px;width:18px;text-align:center;display:none;}
 .nav-badge{margin-left:auto;background:var(--blue);color:#fff;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;min-width:20px;text-align:center;}
 .nav-badge.zero{background:var(--border);color:var(--muted);}
 
@@ -356,31 +356,26 @@ button{cursor:pointer;font-family:inherit;font-size:inherit;}
   <div class="nav-section">
     <div class="nav-label">Instance Control</div>
     <a class="nav-item active" href="/plugins/orchestrator/dashboard">
-      <span class="nav-icon">◉</span>
       Active instances
       <span class="nav-badge zero" id="sidebar-count">0</span>
     </a>
     <a class="nav-item" href="/challenges">
-      <span class="nav-icon">⊞</span>
       All challenges
     </a>
   </div>
   <div class="nav-section">
     <div class="nav-label">Team</div>
     <a class="nav-item" href="/team">
-      <span class="nav-icon">◯</span>
       {{ team_name }}
       <span class="nav-badge" id="sidebar-members">{{ member_count }}</span>
     </a>
     <a class="nav-item" href="/scoreboard">
-      <span class="nav-icon">↺</span>
       Scoreboard
     </a>
   </div>
   <div class="nav-section">
     <div class="nav-label">System</div>
     <a class="nav-item" href="/settings">
-      <span class="nav-icon">⚙</span>
       Settings
     </a>
   </div>
@@ -1484,7 +1479,7 @@ class OrchestrationPlugin:
             if hint_text:
                 hint_block = f"""
 <details class=\"method reveal hint\">
-    <summary>Need a nudge? (click to reveal hint)</summary>
+    <summary>Hint — click to reveal</summary>
     <div class=\"reveal-body\">
         <pre>{html.escape(hint_text)}</pre>
     </div>
@@ -1614,7 +1609,7 @@ class OrchestrationPlugin:
                 radial-gradient(800px 520px at 8% -10%, rgba(59,130,246,0.2), transparent 60%),
                 radial-gradient(860px 540px at 100% -15%, rgba(16,185,129,0.12), transparent 62%),
                 var(--bg);
-            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
             font-weight: 400;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
@@ -2033,7 +2028,7 @@ class OrchestrationPlugin:
 
             <div class=\"btn-row\"><a class=\"btn btn-secondary\" href=\"/challenges\">Back to Challenges</a></div>
 
-            <p class=\"tiny\" id=\"autoLine\">Redirecting in <span id=\"countdown\">60</span>s... <a href=\"#\" id=\"stayHere\" style=\"color:var(--btn-primary); margin-left:6px;\">stay here</a></p>
+            <p class=\"tiny\" id=\"autoLine\">Auto-redirect in <span id=\"countdown\">60</span>s &mdash; <a href=\"#\" id=\"stayHere\" style=\"color:var(--btn-primary); margin-left:4px;\">cancel</a></p>
         </div>
     </section>
 

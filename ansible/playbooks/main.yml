@@ -7,7 +7,7 @@
   tasks:
     - name: Print welcome message
       debug:
-        msg: "🚀 Démarrage du déploiement CTF Platform..."
+        msg: "Démarrage du déploiement CTF Platform..."
 
     - name: Update apt cache
       apt:
@@ -364,7 +364,7 @@
     - name: Warn about default secrets (non-production)
       debug:
         msg: |
-          ⚠️  ATTENTION — Des secrets par défaut sont détectés :
+          ATTENTION — Des secrets par défaut sont détectés :
           {% if orchestrator_api_token_effective == 'ChangeMe-Orchestrator-Token' %}  - orchestrator_api_token est 'ChangeMe-*' → définir dans ansible/vars/vault.yml{% endif %}
           {% if db_password_effective == 'ctf_secure_password' or db_password_effective == 'REPLACE_ME' %}  - DB_PASSWORD est la valeur par défaut{% endif %}
           {% if grafana_admin_password_effective == 'admin' %}  - grafana_admin_password est 'admin'{% endif %}
@@ -430,7 +430,7 @@
     - name: Success message
       debug:
         msg: >-
-          ✅ CTF Platform déployée —
+          CTF Platform déployée —
           CTFd: http://{{ ctf_vm_ip }} |
           Orchestrator: http://{{ ctf_vm_ip }}:{{ orchestrator_proxy_listen_port }}/ui |
           Admin plugin: http://{{ ctf_vm_ip }}/plugins/orchestrator/admin |
