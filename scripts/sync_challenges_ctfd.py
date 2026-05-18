@@ -108,7 +108,25 @@ def parse_challenge_yml(path: Path) -> dict[str, Any]:
 
         if ":" in line:
             key, value = line.split(":", 1)
-            data[key.strip()] = _strip_quotes(value)
+            value = _strip_quotes(value)
+            if value == "|":
+                # YAML literal block scalar — read indented lines that follow
+                block: list[str] = []
+                idx += 1
+                while idx < len(lines):
+                    nxt = lines[idx]
+                    if nxt.startswith("  "):
+                        block.append(nxt[2:])
+                        idx += 1
+                        continue
+                    if nxt.strip() == "":
+                        block.append("")
+                        idx += 1
+                        continue
+                    break
+                data[key.strip()] = "\n".join(block).strip()
+                continue
+            data[key.strip()] = value
 
         idx += 1
 
