@@ -291,12 +291,24 @@ def admin_kill_all() -> dict:
     return {"ok": True, "killed": killed, "errors": errors}
 
 
+def _count_challenges() -> int:
+    try:
+        return sum(1 for _ in Path(CHALLENGES_ROOT).rglob("challenge.yml"))
+    except OSError:
+        return 0
+
+
 def _run_sync_background() -> None:
     global _sync_state
     if not CTFD_API_TOKEN:
         with _sync_lock:
-            _sync_state = {"status": "done", "log": "ERROR: ORCHESTRATOR_CTFD_API_TOKEN not set", "result": {"ok": False, "error": "ORCHESTRATOR_CTFD_API_TOKEN not set"}}
+            _sync_state = {"status": "done", "log": "ERROR: ORCHESTRATOR_CTFD_API_TOKEN not set",
+                           "done_count": 0, "total": 0, "result": {"ok": False, "error": "ORCHESTRATOR_CTFD_API_TOKEN not set"}}
         return
+    total = _count_challenges()
+    with _sync_lock:
+        _sync_state["total"] = total
+        _sync_state["done_count"] = 0
     cmd = [
         "python3", SYNC_SCRIPT,
         "--ctfd-url", CTFD_BASE_URL,
@@ -306,14 +318,18 @@ def _run_sync_background() -> None:
         "--connection-mode", "launch-link",
     ]
     log_lines: list = []
+    done_count = 0
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         for line in proc.stdout:
             clean = re.sub(r'\x1b\[[0-9;]*m', '', line).rstrip()
             if clean:
                 log_lines.append(clean)
+                if clean.startswith("OK:"):
+                    done_count += 1
                 with _sync_lock:
                     _sync_state["log"] = "\n".join(log_lines[-200:])
+                    _sync_state["done_count"] = done_count
         proc.wait(timeout=120)
         result = {"ok": proc.returncode == 0}
     except subprocess.TimeoutExpired:
@@ -322,7 +338,8 @@ def _run_sync_background() -> None:
     except OSError as exc:
         result = {"ok": False, "error": str(exc)}
     with _sync_lock:
-        _sync_state = {"status": "done", "log": "\n".join(log_lines[-200:]), "result": result}
+        _sync_state = {"status": "done", "log": "\n".join(log_lines[-200:]),
+                       "done_count": done_count, "total": total, "result": result}
 
 
 def admin_sync_challenges() -> dict:
@@ -814,6 +831,8 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 _sync_state["status"] = "running"
                 _sync_state["log"] = ""
+                _sync_state["done_count"] = 0
+                _sync_state["total"] = 0
                 _sync_state["result"] = None
             threading.Thread(target=_run_sync_background, daemon=True).start()
             self._audit_http("admin_sync_start", 202, path)

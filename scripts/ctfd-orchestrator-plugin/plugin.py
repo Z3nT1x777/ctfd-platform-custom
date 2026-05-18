@@ -104,6 +104,12 @@ pre#log{background:#0a1120;border:1px solid var(--line);border-radius:8px;paddin
 
 <div class="log-panel">
   <h3>Output log</h3>
+  <div id="progress-wrap" style="display:none;margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <progress id="progress-bar" value="0" max="100" style="flex:1;height:16px"></progress>
+      <span id="progress-label" style="font-size:0.85em;white-space:nowrap;color:var(--muted,#aaa)">0 / 0</span>
+    </div>
+  </div>
   <pre id="log">En attente d'une action...</pre>
 </div>
 
@@ -182,19 +188,34 @@ function _setActionGuard(active, actionName) {
   }
 }
 
+function _updateProgress(done, total) {
+  const wrap = document.getElementById("progress-wrap");
+  const bar = document.getElementById("progress-bar");
+  const label = document.getElementById("progress-label");
+  if (!total) { wrap.style.display = "none"; return; }
+  wrap.style.display = "block";
+  bar.max = total;
+  bar.value = done;
+  label.textContent = done + " / " + total;
+}
+
 async function pollAsyncAction(name, spinner) {
   const labels = { prebuild: "Build", sync: "Sync" };
   _setActionGuard(true, labels[name] || name);
+  _updateProgress(0, 0);
   try {
     while (true) {
       await new Promise(r => setTimeout(r, 3000));
       const res = await fetch(BASE + "/admin/" + name + "/status", { headers: csrfHeaders() });
       const data = await res.json();
       if (data.log) log(data.log);
+      _updateProgress(data.done_count || 0, data.total || 0);
       if (data.status === "done") {
         const r = data.result || {};
+        const total = data.total || 0;
+        _updateProgress(total, total);
         if (name === "prebuild") {
-          log("[OK] Build terminé: " + (r.built || 0) + "/" + (r.total || 0) + " images\\n" + (data.log || ""));
+          log("[OK] Build terminé: " + (r.built || 0) + "/" + total + " images\\n" + (data.log || ""));
         } else {
           log((r.ok !== false ? "[OK] " : "[ERROR] ") + (data.log || JSON.stringify(r, null, 2)));
         }
@@ -205,6 +226,7 @@ async function pollAsyncAction(name, spinner) {
     _setActionGuard(false);
     if (spinner) spinner.style.display = "none";
     document.querySelectorAll(".btn").forEach(b => b.disabled = false);
+    setTimeout(() => { document.getElementById("progress-wrap").style.display = "none"; }, 3000);
     refreshInstances();
   }
 }
