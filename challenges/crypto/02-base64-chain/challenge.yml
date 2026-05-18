@@ -13,6 +13,4 @@ hint1: |
   Base64 n'est PAS du chiffrement, c'est de l'encodage
 hint2: |
   Le message a été encodé deux fois avec le même algorithme
-hint3: |
-  Décode en base64, puis décode encore en base64. CyberChef ou Python : base64.b64decode()
 flag: CTF{base64_is_not_encryption}

@@ -15,7 +15,5 @@ hint1: |
   Connecte-toi via SSH avec les credentials fournis. Une fois connecté, explore le répertoire courant et les répertoires classiques.
 hint2: |
   Cherche les fichiers cachés (ls -la) dans le home directory et inspecte /opt, /var/local. Le flag peut être dans un fichier texte.
-hint3: |
-  Utilise 'find / -name "flag*" -o -name "*.txt" 2>/dev/null' pour localiser tous les fichiers potentiellement intéressants sur le système.
 flag: CTF{ssh_lab_template_flag}
 port: 5003

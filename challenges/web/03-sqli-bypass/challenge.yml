@@ -13,6 +13,6 @@ hint1: |
 hint2: |
   Que se passe-t-il si tu mets une apostrophe dans le champ username ?
 hint3: |
-  Essaie dans le champ username : admin'-- ou bien ' OR '1'='1
+  Deux techniques classiques : les commentaires SQL (tout ce qui suit est ignoré) et les conditions toujours vraies. Cherche "SQL injection auth bypass cheatsheet" pour voir les payloads courants.
 flag: CTF{sqli_auth_bypass_union_select}
 port: 5032

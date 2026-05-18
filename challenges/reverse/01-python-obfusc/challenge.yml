@@ -19,6 +19,4 @@ hint1: |
   Les noms de variables ont été remplacés par _0, _1, etc. Renomme-les pour y voir plus clair.
 hint2: |
   La fonction _3 convertit une chaîne hexadécimale en texte : bytes.fromhex(x).decode()
-hint3: |
-  Concatène les morceaux de _4 et convertis le hex résultant en ASCII. C'est le password ET le flag.
 flag: CTF{exec_base64_unpack}
