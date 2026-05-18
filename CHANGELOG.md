@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.5.0 - 2026-05-18
+
+### Added
+- **Sandbox category** — 2 new challenges:
+  - `history-perms-ssh` (250 pts) — pivot via bash history breadcrumbs + sudo misconfiguration
+  - `ssh-lab` / `local-service-recon` (150 pts) — enumerate localhost services, inspect monitoring agent source, curl `/metrics` endpoint
+- **OSINT category** — 2 challenges finalized:
+  - `metro-memory-trail` (150 pts) — extract GPS EXIF from Colonne de Juillet photo + DateTimeOriginal from vintage postcard → `CTF{paris_bastille_1989}`
+  - `first-hacker` (100 pts, ex `template-example`) — social engineering pioneer OSINT → `CTF{kevin_mitnick}`
+- Soluces for sandbox challenges: `soluce/sandbox/history-perms-ssh/` and `soluce/sandbox/ssh-lab/`
+- EXIF injection utility: `challenges/osint/metro-memory-trail/inject_exif.py` (piexif — reproducible asset preparation)
+
+### Changed
+- OSINT `metro-memory-trail`: complete scenario rewrite — French narrative, dark UI redesign, real EXIF metadata injected into assets
+- OSINT `template-example` directory renamed → `first-hacker`; value raised 75 → 100 pts
+- **Ansible**: added blocking `fail` task when any secret is literally `REPLACE_ME` (vault.example.yml copied without modification); existing `debug` warning retained for default placeholder values
+
+### Fixed
+- `sync_challenges_ctfd.py`: YAML block scalar parser extended to all keys (was only `description:`) — hints defined with `|` now parse correctly
+- `player-instance-api.py`: Python stdout unbuffering (`python3 -u` + `bufsize=1`) — sync log streams line-by-line instead of appearing all at once
+- Admin plugin progress bar: replaced native `<progress>` element with custom 3px gradient div — no longer spans full log width
+- `metro-memory-trail/resources/index.html`: fixed `clue.png` reference → `clue.jpg`
+- `crypto/01-caesar-warmup`: value 50 → 100 pts
+- `web/01-simple-login`: value 75 → 100 pts
+- `crypto/02-base64-chain`: value 75 → 100 pts; added hint3
+- `linux/01-suid-classic`: added hint3 (GTFOBins reference)
+- `linux/05-capabilities`, `linux/06-container-escape`, `web/05-lfi-reader`: removed solution-revealing hints
+
+---
+
 ## v2.4.0 - 2026-05-15
 
 ### Added
