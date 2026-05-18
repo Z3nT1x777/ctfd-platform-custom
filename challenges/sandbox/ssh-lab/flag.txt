@@ -1,1 +1,1 @@
-CTF{ssh_lab_template_flag}
+CTF{metrics_endpoint_exposed_locally}

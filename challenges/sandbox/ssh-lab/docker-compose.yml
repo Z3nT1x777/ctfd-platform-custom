@@ -3,9 +3,8 @@ version: '3.8'
 services:
   ssh-lab:
     build: .
+    image: ctf-sandbox-ssh-lab:latest
     container_name: ctf-ssh-lab
     ports:
       - "5003:22"
-    environment:
-      - FLAG=CTF{ssh_lab_template_flag}
     restart: always
