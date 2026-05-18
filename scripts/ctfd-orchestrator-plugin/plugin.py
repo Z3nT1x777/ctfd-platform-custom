@@ -155,8 +155,8 @@ async function runAction(name) {
       body: "{}"
     });
     const data = await res.json();
-    if (name === "prebuild" && (data.status === "started" || data.status === "running")) {
-      await pollPrebuild(spinner);
+    if ((name === "prebuild" || name === "sync") && (data.status === "started" || data.status === "running")) {
+      await pollAsyncAction(name, spinner);
       return;
     }
     let out = JSON.stringify(data, null, 2);
@@ -172,23 +172,37 @@ async function runAction(name) {
   }
 }
 
-async function pollPrebuild(spinner) {
+function _setActionGuard(active, actionName) {
+  if (active) {
+    window._actionGuard = e => { e.preventDefault(); e.returnValue = actionName + " en cours. Quitter annulera le suivi (l'opération continue en arrière-plan)."; };
+    window.addEventListener("beforeunload", window._actionGuard);
+  } else if (window._actionGuard) {
+    window.removeEventListener("beforeunload", window._actionGuard);
+    window._actionGuard = null;
+  }
+}
+
+async function pollAsyncAction(name, spinner) {
+  const labels = { prebuild: "Build", sync: "Sync" };
+  _setActionGuard(true, labels[name] || name);
   try {
-    let dots = 0;
     while (true) {
       await new Promise(r => setTimeout(r, 3000));
-      dots = (dots % 3) + 1;
-      log("Build en cours" + ".".repeat(dots));
-      const res = await fetch(BASE + "/admin/prebuild/status", { headers: csrfHeaders() });
+      const res = await fetch(BASE + "/admin/" + name + "/status", { headers: csrfHeaders() });
       const data = await res.json();
+      if (data.log) log(data.log);
       if (data.status === "done") {
         const r = data.result || {};
-        const lines = (r.results || []).map(x => (x.ok ? "OK" : "FAIL") + ": " + x.challenge + (x.ok ? "" : "\\n  " + x.stderr));
-        log("[OK] Build terminé: " + (r.built || 0) + "/" + (r.total || 0) + " images\\n" + lines.join("\\n"));
+        if (name === "prebuild") {
+          log("[OK] Build terminé: " + (r.built || 0) + "/" + (r.total || 0) + " images\\n" + (data.log || ""));
+        } else {
+          log((r.ok !== false ? "[OK] " : "[ERROR] ") + (data.log || JSON.stringify(r, null, 2)));
+        }
         return;
       }
     }
   } finally {
+    _setActionGuard(false);
     if (spinner) spinner.style.display = "none";
     document.querySelectorAll(".btn").forEach(b => b.disabled = false);
     refreshInstances();
