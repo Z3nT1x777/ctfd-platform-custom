@@ -155,12 +155,39 @@ async function runAction(name) {
       body: "{}"
     });
     const data = await res.json();
+    if (name === "prebuild" && (data.status === "started" || data.status === "running")) {
+      await pollPrebuild(spinner);
+      return;
+    }
     let out = JSON.stringify(data, null, 2);
     if (data.stdout) out = data.stdout + (data.stderr ? "\\n--- stderr ---\\n" + data.stderr : "");
     if (name === "kill-all") out = "Killed: " + (data.killed || []).join(", ") + (data.errors && data.errors.length ? "\\nErrors: " + data.errors.join(", ") : "");
     log((data.ok !== false ? "[OK] " : "[ERROR] ") + out);
   } catch(e) {
     log("[ERROR] Erreur réseau : " + e.message);
+  } finally {
+    if (spinner) spinner.style.display = "none";
+    document.querySelectorAll(".btn").forEach(b => b.disabled = false);
+    refreshInstances();
+  }
+}
+
+async function pollPrebuild(spinner) {
+  try {
+    let dots = 0;
+    while (true) {
+      await new Promise(r => setTimeout(r, 3000));
+      dots = (dots % 3) + 1;
+      log("Build en cours" + ".".repeat(dots));
+      const res = await fetch(BASE + "/admin/prebuild/status", { headers: csrfHeaders() });
+      const data = await res.json();
+      if (data.status === "done") {
+        const r = data.result || {};
+        const lines = (r.results || []).map(x => (x.ok ? "OK" : "FAIL") + ": " + x.challenge + (x.ok ? "" : "\\n  " + x.stderr));
+        log("[OK] Build terminé: " + (r.built || 0) + "/" + (r.total || 0) + " images\\n" + lines.join("\\n"));
+        return;
+      }
+    }
   } finally {
     if (spinner) spinner.style.display = "none";
     document.querySelectorAll(".btn").forEach(b => b.disabled = false);

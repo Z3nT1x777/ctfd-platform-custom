@@ -44,6 +44,10 @@ PUBLIC_URL = os.environ.get("ORCHESTRATOR_PUBLIC_URL", f"http://{API_BIND}")
 RATE_STATE_PATH = os.environ.get("ORCHESTRATOR_RATE_STATE_PATH", "/var/lib/ctf/rate_state.json")
 _rate_persist_lock = threading.Lock()
 
+# Async prebuild state
+_prebuild_lock = threading.Lock()
+_prebuild_state: dict = {"status": "idle", "result": None}
+
 # Prometheus metrics (no-op if prometheus_client not installed)
 if _PROM_AVAILABLE:
     _prom_requests = Counter(
@@ -303,6 +307,13 @@ def admin_sync_challenges() -> dict:
         return {"ok": False, "error": "sync timed out after 120s"}
     except OSError as exc:
         return {"ok": False, "error": str(exc)}
+
+
+def _run_prebuild_background() -> None:
+    global _prebuild_state
+    result = admin_prebuild_images()
+    with _prebuild_lock:
+        _prebuild_state = {"status": "done", "result": result}
 
 
 def admin_prebuild_images() -> dict:
@@ -623,6 +634,12 @@ class Handler(BaseHTTPRequestHandler):
             self._json_response(200, payload)
             return
 
+        if path == "/admin/prebuild/status":
+            with _prebuild_lock:
+                state = dict(_prebuild_state)
+            self._json_response(200, {"ok": True, **state})
+            return
+
         self._json_response(404, {"error": "not found"})
 
     def _execute_action(self, path: str, data: dict) -> tuple[int, dict]:
@@ -758,9 +775,15 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if path == "/admin/prebuild":
-            payload = admin_prebuild_images()
-            self._audit_http("admin_prebuild", 200, path)
-            self._json_response(200, payload)
+            with _prebuild_lock:
+                if _prebuild_state["status"] == "running":
+                    self._json_response(200, {"ok": True, "status": "running"})
+                    return
+                _prebuild_state["status"] = "running"
+                _prebuild_state["result"] = None
+            threading.Thread(target=_run_prebuild_background, daemon=True).start()
+            self._audit_http("admin_prebuild_start", 202, path)
+            self._json_response(202, {"ok": True, "status": "started"})
             return
 
         # Player-facing routes require signature verification
