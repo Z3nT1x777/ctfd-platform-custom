@@ -16,5 +16,5 @@ hint1: |
 hint2: |
   Avec une clé répétée de longueur 4, les octets en position 0,4,8,... sont tous XORés avec le même octet
 hint3: |
-  Tu connais le début du flag : 'CTF{'. Utilise cette connaissance pour retrouver la clé : key[i] = cipher[i] XOR plaintext[i] pour i in 0..3
+  Les flags ont toujours le même préfixe — tu connais donc les premiers octets du plaintext. Combine ça avec la propriété de réversibilité du XOR pour déduire les octets de la clé un par un.
 flag: CTF{xor_repeating_key_weak}
