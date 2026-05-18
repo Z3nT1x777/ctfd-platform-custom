@@ -62,10 +62,27 @@ Vagrant.configure("2") do |config|
     cp -a /vagrant/ansible/. /root/ctf-ansible/
     chmod -R go-w /root/ctf-ansible
 
-    # Dev mode: auto-create vault.yml from example on fresh clone (no real secrets)
+    # Dev mode: auto-create vault.yml with random secrets on fresh clone
     if [ ! -f /root/ctf-ansible/vars/vault.yml ]; then
-      cp /root/ctf-ansible/vars/vault.example.yml /root/ctf-ansible/vars/vault.yml
-      echo "[INFO] vars/vault.yml created from vault.example.yml — dev defaults active. Edit ansible/vars/vault.yml and re-provision for production."
+      DB_ROOT=$(openssl rand -hex 16)
+      DB_PASS=$(openssl rand -hex 16)
+      ORCH_TOKEN=$(openssl rand -hex 24)
+      ORCH_SIGN=$(openssl rand -hex 32)
+      ORCH_WEBHOOK=$(openssl rand -hex 24)
+      GRAFANA_PASS=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 16)
+      cat > /root/ctf-ansible/vars/vault.yml <<EOF
+DB_ROOT_PASSWORD: "${DB_ROOT}"
+DB_PASSWORD: "${DB_PASS}"
+orchestrator_api_token: "${ORCH_TOKEN}"
+orchestrator_signing_secret: "${ORCH_SIGN}"
+orchestrator_ctfd_webhook_token: "${ORCH_WEBHOOK}"
+grafana_admin_password: "${GRAFANA_PASS}"
+ctfd_api_token: ""
+EOF
+      # Also write to host shared folder so the user can read their generated secrets
+      cp /root/ctf-ansible/vars/vault.yml /vagrant/ansible/vars/vault.yml
+      echo "[INFO] vars/vault.yml auto-generated with random secrets → ansible/vars/vault.yml"
+      echo "[INFO] Read ansible/vars/vault.yml on your host to see the generated passwords."
     fi
 
     # Support optional vault password file for encrypted vault.yml (prod)

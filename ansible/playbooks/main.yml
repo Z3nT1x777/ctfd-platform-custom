@@ -376,6 +376,7 @@
         executable: /bin/bash
       changed_when: false
       failed_when: false
+      when: prebuild_on_provision | default(false) | bool
 
     - name: Sync OSINT static challenge assets to web root
       command: >
@@ -419,15 +420,17 @@
     - name: Warn about default secrets (non-production)
       debug:
         msg: |
-          ATTENTION — Des secrets par défaut sont détectés :
-          {% if orchestrator_api_token_effective == 'ChangeMe-Orchestrator-Token' %}  - orchestrator_api_token est 'ChangeMe-*' → définir dans ansible/vars/vault.yml{% endif %}
-          {% if db_password_effective == 'ctf_secure_password' or db_password_effective == 'REPLACE_ME' %}  - DB_PASSWORD est la valeur par défaut{% endif %}
-          {% if grafana_admin_password_effective == 'admin' %}  - grafana_admin_password est 'admin'{% endif %}
+          ATTENTION — Des secrets non sécurisés sont détectés :
+          {% if orchestrator_api_token_effective in ['ChangeMe-Orchestrator-Token', 'REPLACE_ME', ''] %}  - orchestrator_api_token est insécurisé → définir dans ansible/vars/vault.yml{% endif %}
+          {% if db_password_effective in ['CTFdPassword123!', 'REPLACE_ME', ''] %}  - DB_PASSWORD est la valeur par défaut ou vide{% endif %}
+          {% if db_root_password_effective in ['RootPassword123!', 'REPLACE_ME', ''] %}  - DB_ROOT_PASSWORD est la valeur par défaut ou vide{% endif %}
+          {% if grafana_admin_password_effective in ['admin', 'REPLACE_ME', ''] %}  - grafana_admin_password est insécurisé{% endif %}
           Copier ansible/vars/vault.example.yml → vault.yml et renseigner des vraies valeurs avant un CTF public.
       when: >-
-        orchestrator_api_token_effective == 'ChangeMe-Orchestrator-Token' or
-        grafana_admin_password_effective == 'admin' or
-        db_password_effective == 'ctf_secure_password'
+        orchestrator_api_token_effective in ['ChangeMe-Orchestrator-Token', 'REPLACE_ME', ''] or
+        grafana_admin_password_effective in ['admin', 'REPLACE_ME', ''] or
+        db_password_effective in ['CTFdPassword123!', 'REPLACE_ME', ''] or
+        db_root_password_effective in ['RootPassword123!', 'REPLACE_ME', '']
 
     # ── Log rotation ───────────────────────────────────────────────────────
     - name: Install logrotate config for orchestrator logs
