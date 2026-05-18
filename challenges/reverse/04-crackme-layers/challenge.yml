@@ -32,12 +32,7 @@ hint1: |
   Applique les transformations dans l'ordre inverse : layer3 est un reverse(),
   layer2 est un XOR (sa propre inverse), layer1 est un base64 decode.
 hint2: |
-  En Python :
-  import base64
-  TARGET = "6]XU|YXUx6>lvYXjgw=WcYbl`]<jH]>^"
-  s = TARGET[::-1]
-  s = ''.join(chr(ord(c)^0x0F) for c in s)
-  print(base64.b64decode(s).decode())
+  Inverse les couches dans l'ordre : layer3⁻¹ = reverse de TARGET, layer2⁻¹ = XOR octet par octet avec 0x0F (XOR est son propre inverse), layer1⁻¹ = base64.b64decode(). Applique ces 3 étapes en Python pour retrouver l'entrée originale.
 hint3: |
   Le flag commence par CTF{ et se termine par }. La bonne réponse est le flag lui-même.
 flag: CTF{three_layers_peeled}

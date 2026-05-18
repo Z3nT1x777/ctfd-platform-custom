@@ -16,5 +16,5 @@ hint2: |
   Le masque répété fait 4 octets. Si tu trouves le tableau `expected[]` et le masque,
   tu peux reconstruire le flag en Python : bytes([e ^ mask[i%4] for i,e in enumerate(expected)]).decode()
 hint3: |
-  Le masque est la chaîne ASCII "BLUE" (0x42 0x4C 0x55 0x45).
-flag: CTF{xor_repeating_key_weak}
+  Le masque de 4 octets correspond à des lettres ASCII majuscules formant un mot courant. Trouve-le dans la section .rodata de Ghidra, puis : bytes([e ^ mask[i%4] for i,e in enumerate(expected)]).decode()
+flag: CTF{xor_mask_reversed}
