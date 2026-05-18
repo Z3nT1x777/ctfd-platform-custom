@@ -17,6 +17,6 @@ hint1: |
 hint2: |
   Le binaire appelle une commande externe sans chemin absolu. Que se passe-t-il si tu contrôles le PATH ?
 hint3: |
-  Crée /tmp/sysinfo avec le contenu voulu, puis mets /tmp en tête du PATH avant de relancer /usr/local/bin/syscheck.
+  Crée un faux script portant exactement le même nom que la commande appelée, place-le dans /tmp (que tu contrôles), puis modifie PATH pour que ce répertoire soit cherché en premier avant de relancer le binaire SUID.
 flag: CTF{path_hijack_suid_custom_binary}
 port: 5023

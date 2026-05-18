@@ -16,5 +16,5 @@ hint1: |
 hint2: |
   Mais les mots de passe courants sont dans des tables arc-en-ciel (rainbow tables)
 hint3: |
-  Essaie crackstation.net ou cmd5.org — c'est un mot du dictionnaire anglais très commun
+  Des bases de données en ligne recensent des millions de hashes MD5 connus. Essaie de chercher ce hash directement dans un moteur de recherche ou sur un site de reverse lookup MD5.
 flag: CTF{sunshine}

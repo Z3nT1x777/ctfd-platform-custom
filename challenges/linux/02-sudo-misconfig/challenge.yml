@@ -17,6 +17,6 @@ hint1: |
 hint2: |
   sudo -l liste les commandes autorisées. L'une d'elles est un éditeur de texte.
 hint3: |
-  Dans vim, la commande :!/bin/bash lance un shell avec les droits sudo.
+  Les éditeurs de texte peuvent exécuter des commandes système depuis leur interface. Cherche comment cet éditeur peut spawner un shell — le site GTFOBins recense toutes ces techniques.
 flag: CTF{sudo_vim_shell_escape}
 port: 5021
