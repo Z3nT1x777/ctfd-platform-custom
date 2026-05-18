@@ -12,7 +12,7 @@ description: |
 hint1: |
   La commande Unix 'strings' extrait toutes les chaînes imprimables d'un binaire ou d'un dump.
 hint2: |
-  Le flag suit le format CTF{...}. Essaie : grep 'CTF{' memdump.strings
+  Le flag suit le format CTF{...}. Utilise un outil de recherche de chaînes pour filtrer par ce pattern — les accolades `{` et `}` sont des marqueurs fiables.
 hint3: |
   Si grep ne trouve rien directement, essaie strings -n 4 ou cherche des motifs inhabituels. Le flag est peut-être encodé une fois.
 flag: CTF{strings_memdump_analysis}

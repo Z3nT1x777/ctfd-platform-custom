@@ -9,10 +9,12 @@ container_port: 22
 access_instructions: |
   Connect with the SSH command below, then authenticate with the credentials card.
   Goal: pivot from shell history breadcrumbs to privilege escalation and recover the flag.
-hint: |
-  Start with: cat ~/.bash_history
-  Then inspect: cat /opt/ops/notes/incident.txt
-  Finally enumerate sudo rights: sudo -l
+hint1: |
+  Commence par inspecter l'historique des commandes de l'utilisateur courant pour trouver des traces d'actions passées.
+hint2: |
+  L'historique mentionne un fichier de notes laissé par l'équipe ops dans /opt/ops/. Inspecte son contenu pour y trouver des credentials ou des indices sur une escalade possible.
+hint3: |
+  Énumère les droits sudo disponibles avec 'sudo -l'. Une des commandes autorisées permet d'ouvrir un shell root sans mot de passe supplémentaire.
 description: |
   Gain SSH access to the instance, investigate shell history breadcrumbs,
   and exploit a privilege misconfiguration to recover the flag.

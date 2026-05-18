@@ -1,14 +1,23 @@
-name: OSINT Template Example
+name: first-hacker
 category: osint
 value: 75
 type: static
-connection_mode: instruction
-access_instructions: |
-  This is a template instruction-only challenge.
-  Replace this text with your scenario, clues, and expected workflow.
-  Provide the clue material as a PDF, image, document, or external reference.
-  No browser link or container launch is required.
 description: |
-  Generic static OSINT example for template usage.
-  Customize the narrative, document/image assets, and final flag before publishing.
-flag: CTF{replace_with_real_flag}
+  Un investigateur cherche des informations sur un pionnier légendaire du hacking.
+  Voici les notes trouvées dans un vieux dossier classifié :
+
+  - Condamné pour accès non autorisé à des systèmes d'entreprise à Los Angeles dans les années 80
+  - Spécialiste reconnu de l'ingénierie sociale, considéré comme l'un des hackers les plus recherchés des États-Unis
+  - A passé plusieurs années en fuite avant d'être finalement arrêté
+  - A collaboré avec les autorités après sa libération et est devenu consultant renommé en cybersécurité
+  - Décédé en juillet 2023
+
+  Retrouve son nom complet et soumets le flag sous la forme : `CTF{prenom_nom}` (tout en minuscules, séparés par un underscore)
+
+hint1: |
+  Cherche : "hacker social engineering années 80 Los Angeles consultant cybersécurité décédé 2023". Ce pionnier est l'une des figures les plus médiatisées du hacking.
+hint2: |
+  Il est connu sous un surnom lié à sa capacité à disparaître. Son histoire a inspiré plusieurs livres et un film hollywoodien.
+hint3: |
+  Son prénom est Kevin. Il a publié plusieurs livres sur l'ingénierie sociale après sa reconversion. Cherche "Kevin hacker social engineering condor".
+flag: CTF{kevin_mitnick}

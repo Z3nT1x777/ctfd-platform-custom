@@ -12,11 +12,11 @@ description: |
   c = 2557
   ```
 
-  Le flag est `CTF{rsa_small_n_factored}` — prouve que tu as compris en soumettant ce flag après avoir vérifié que tu peux déchiffrer c.
+  Retrouve le message original m (un nombre entier). Le flag est `CTF{` + le texte ASCII du message + `}`.
 hint1: |
   RSA : pour déchiffrer, tu as besoin de la clé privée d = e⁻¹ mod φ(n)
 hint2: |
   n = 3233 est petit. Essaie de le factoriser : quels sont ses facteurs premiers ?
 hint3: |
-  n = 61 × 53. φ(n) = 60 × 52 = 3120. Calcule d avec l'algorithme d'Euclide étendu, puis m = c^d mod n
+  Une fois n factorisé en p et q, calcule φ(n) = (p-1)×(q-1), puis trouve d tel que e×d ≡ 1 mod φ(n) (algorithme d'Euclide étendu). Enfin : m = c^d mod n. En Python : pow(c, d, n).
 flag: CTF{rsa_small_n_factored}

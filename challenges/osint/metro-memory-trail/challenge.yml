@@ -15,4 +15,11 @@ description: |
 
 connection_info: http://192.168.56.10/osint/metro-memory-trail/resources/
 
+hint1: |
+  Accède à la page du challenge et examine chaque image disponible dans la section "Clues". Cherche des détails visuels caractéristiques : architecture, panneaux, logos.
+hint2: |
+  Les métadonnées EXIF d'une image peuvent révéler la date de prise de vue et parfois les coordonnées GPS. Utilise exiftool ou un viewer EXIF en ligne.
+hint3: |
+  Le format du flag est CTF{ville_station_YYYY}. Les indices pointent vers une ville européenne connue pour son réseau de transport. L'année correspond à un événement historique marquant.
+
 flag: CTF{paris_bastille_1989}
