@@ -31,11 +31,6 @@
         state: present
         executable: pip3
 
-    - name: Initialize vault_overrides to empty dict (fallback when vault.yml absent)
-      set_fact:
-        vault_overrides: {}
-      no_log: true
-
     - name: Load optional vaulted overrides
       include_vars:
         file: ../vars/vault.yml
@@ -45,13 +40,13 @@
 
     - name: Build effective secret values
       set_fact:
-        db_root_password_effective: "{{ vault_overrides.DB_ROOT_PASSWORD | default(DB_ROOT_PASSWORD) }}"
-        db_password_effective: "{{ vault_overrides.DB_PASSWORD | default(DB_PASSWORD) }}"
-        orchestrator_api_token_effective: "{{ vault_overrides.orchestrator_api_token | default(orchestrator_api_token) }}"
-        orchestrator_signing_secret_effective: "{{ vault_overrides.orchestrator_signing_secret | default(orchestrator_signing_secret) }}"
-        orchestrator_ctfd_webhook_token_effective: "{{ vault_overrides.orchestrator_ctfd_webhook_token | default(orchestrator_ctfd_webhook_token) }}"
-        grafana_admin_password_effective: "{{ vault_overrides.grafana_admin_password | default(grafana_admin_password) }}"
-        ctfd_api_token_effective: "{{ vault_overrides.ctfd_api_token | default(ctfd_api_token) }}"
+        db_root_password_effective: "{{ (vault_overrides | default({})).DB_ROOT_PASSWORD | default(DB_ROOT_PASSWORD) }}"
+        db_password_effective: "{{ (vault_overrides | default({})).DB_PASSWORD | default(DB_PASSWORD) }}"
+        orchestrator_api_token_effective: "{{ (vault_overrides | default({})).orchestrator_api_token | default(orchestrator_api_token) }}"
+        orchestrator_signing_secret_effective: "{{ (vault_overrides | default({})).orchestrator_signing_secret | default(orchestrator_signing_secret) }}"
+        orchestrator_ctfd_webhook_token_effective: "{{ (vault_overrides | default({})).orchestrator_ctfd_webhook_token | default(orchestrator_ctfd_webhook_token) }}"
+        grafana_admin_password_effective: "{{ (vault_overrides | default({})).grafana_admin_password | default(grafana_admin_password) }}"
+        ctfd_api_token_effective: "{{ (vault_overrides | default({})).ctfd_api_token | default(ctfd_api_token) }}"
       no_log: true
 
     - name: Resolve orchestrator quota profile
