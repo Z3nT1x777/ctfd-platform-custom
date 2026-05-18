@@ -310,7 +310,7 @@ def _run_sync_background() -> None:
         _sync_state["total"] = total
         _sync_state["done_count"] = 0
     cmd = [
-        "python3", SYNC_SCRIPT,
+        "python3", "-u", SYNC_SCRIPT,
         "--ctfd-url", CTFD_BASE_URL,
         "--api-token", CTFD_API_TOKEN,
         "--challenges-root", CHALLENGES_ROOT,
@@ -320,7 +320,7 @@ def _run_sync_background() -> None:
     log_lines: list = []
     done_count = 0
     try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
         for line in proc.stdout:
             clean = re.sub(r'\x1b\[[0-9;]*m', '', line).rstrip()
             if clean:
