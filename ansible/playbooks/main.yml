@@ -411,21 +411,48 @@
       debug:
         msg: "{{ challenges_sync_result.stdout_lines | default(['(skipped — set ctfd_api_token in vault.yml)']) }}"
 
-    # ── Vault warning ──────────────────────────────────────────────────────
+    # ── Vault validation ───────────────────────────────────────────────────
+    - name: FAIL — vault.yml copiée sans modification (REPLACE_ME détecté)
+      fail:
+        msg: |
+          ERREUR : Un ou plusieurs secrets sont restés à la valeur "REPLACE_ME".
+          Vous avez probablement copié vault.example.yml sans renseigner les vraies valeurs.
+
+          Valeurs à corriger dans ansible/vars/vault.yml :
+          {% if orchestrator_api_token_effective == 'REPLACE_ME' %}  - orchestrator_api_token{% endif %}
+          {% if orchestrator_signing_secret_effective == 'REPLACE_ME' %}  - orchestrator_signing_secret{% endif %}
+          {% if orchestrator_ctfd_webhook_token_effective == 'REPLACE_ME' %}  - orchestrator_ctfd_webhook_token{% endif %}
+          {% if db_password_effective == 'REPLACE_ME' %}  - DB_PASSWORD{% endif %}
+          {% if db_root_password_effective == 'REPLACE_ME' %}  - DB_ROOT_PASSWORD{% endif %}
+          {% if grafana_admin_password_effective == 'REPLACE_ME' %}  - grafana_admin_password{% endif %}
+
+          Commandes pour générer des secrets :
+            openssl rand -hex 32       # token/signing secret
+            openssl rand -base64 24    # mot de passe
+
+          Voir ansible/vars/vault.example.yml pour la structure attendue.
+      when: >-
+        orchestrator_api_token_effective == 'REPLACE_ME' or
+        orchestrator_signing_secret_effective == 'REPLACE_ME' or
+        orchestrator_ctfd_webhook_token_effective == 'REPLACE_ME' or
+        db_password_effective == 'REPLACE_ME' or
+        db_root_password_effective == 'REPLACE_ME' or
+        grafana_admin_password_effective == 'REPLACE_ME'
+
     - name: Warn about default secrets (non-production)
       debug:
         msg: |
           ATTENTION — Des secrets non sécurisés sont détectés :
-          {% if orchestrator_api_token_effective in ['ChangeMe-Orchestrator-Token', 'REPLACE_ME', ''] %}  - orchestrator_api_token est insécurisé → définir dans ansible/vars/vault.yml{% endif %}
-          {% if db_password_effective in ['CTFdPassword123!', 'REPLACE_ME', ''] %}  - DB_PASSWORD est la valeur par défaut ou vide{% endif %}
-          {% if db_root_password_effective in ['RootPassword123!', 'REPLACE_ME', ''] %}  - DB_ROOT_PASSWORD est la valeur par défaut ou vide{% endif %}
-          {% if grafana_admin_password_effective in ['admin', 'REPLACE_ME', ''] %}  - grafana_admin_password est insécurisé{% endif %}
+          {% if orchestrator_api_token_effective in ['ChangeMe-Orchestrator-Token', ''] %}  - orchestrator_api_token est insécurisé → définir dans ansible/vars/vault.yml{% endif %}
+          {% if db_password_effective in ['CTFdPassword123!', ''] %}  - DB_PASSWORD est la valeur par défaut{% endif %}
+          {% if db_root_password_effective in ['RootPassword123!', ''] %}  - DB_ROOT_PASSWORD est la valeur par défaut{% endif %}
+          {% if grafana_admin_password_effective in ['admin', ''] %}  - grafana_admin_password est insécurisé{% endif %}
           Copier ansible/vars/vault.example.yml → vault.yml et renseigner des vraies valeurs avant un CTF public.
       when: >-
-        orchestrator_api_token_effective in ['ChangeMe-Orchestrator-Token', 'REPLACE_ME', ''] or
-        grafana_admin_password_effective in ['admin', 'REPLACE_ME', ''] or
-        db_password_effective in ['CTFdPassword123!', 'REPLACE_ME', ''] or
-        db_root_password_effective in ['RootPassword123!', 'REPLACE_ME', '']
+        orchestrator_api_token_effective in ['ChangeMe-Orchestrator-Token', ''] or
+        grafana_admin_password_effective in ['admin', ''] or
+        db_password_effective in ['CTFdPassword123!', ''] or
+        db_root_password_effective in ['RootPassword123!', '']
 
     # ── Log rotation ───────────────────────────────────────────────────────
     - name: Install logrotate config for orchestrator logs
