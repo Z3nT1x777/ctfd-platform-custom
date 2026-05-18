@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import subprocess
 import threading
 import time
@@ -296,7 +297,8 @@ def admin_sync_challenges() -> dict:
     ]
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        return {"ok": proc.returncode == 0, "stdout": proc.stdout[-4000:], "stderr": proc.stderr[-1000:]}
+        _strip_ansi = lambda s: re.sub(r'\x1b\[[0-9;]*m', '', s)
+        return {"ok": proc.returncode == 0, "stdout": _strip_ansi(proc.stdout)[-4000:], "stderr": _strip_ansi(proc.stderr)[-1000:]}
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": "sync timed out after 120s"}
     except OSError as exc:
