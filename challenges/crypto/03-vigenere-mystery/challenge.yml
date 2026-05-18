@@ -16,5 +16,5 @@ hint1: |
 hint2: |
   La clé est en majuscules et fait 3 caractères. Essaie des mots simples.
 hint3: |
-  Le texte chiffré commence par 'MXD{' et tu sais que le flag commence par 'CTF{'. Calcule chaque lettre de la clé : key[i] = (ord(cipher[i]) - ord(plain[i])) % 26 + ord('A'). Une fois la clé trouvée, utilise CyberChef → Vigenère Decode.
+  Tu connais le début du plaintext et le début du ciphertext — c'est un known-plaintext partiel. La propriété du chiffrement de Vigenère te permet d'en déduire les premiers caractères de la clé sans bruteforce.
 flag: CTF{vigenere_polyalphabetic_cipher}

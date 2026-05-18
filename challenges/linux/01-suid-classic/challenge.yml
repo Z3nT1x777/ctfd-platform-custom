@@ -16,5 +16,7 @@ hint1: |
   Les fichiers avec des droits spéciaux peuvent s'exécuter avec les privilèges de leur propriétaire...
 hint2: |
   Cherche les binaires avec le bit SUID : find / -perm -4000 -type f 2>/dev/null
+hint3: |
+  Un des binaires trouvés figure dans GTFOBins sous la section SUID. Cherche son nom sur gtfobins.github.io.
 flag: CTF{suid_find_gtfobins_ez}
 port: 5020
