@@ -103,11 +103,13 @@ pre#log{background:#0a1120;border:1px solid var(--line);border-radius:8px;paddin
 </div>
 
 <div class="log-panel">
-  <h3>Output log</h3>
-  <div id="progress-wrap" style="display:none;margin-bottom:8px">
-    <div style="display:flex;align-items:center;gap:10px">
-      <progress id="progress-bar" value="0" max="100" style="flex:1;height:16px"></progress>
-      <span id="progress-label" style="font-size:0.85em;white-space:nowrap;color:var(--muted,#aaa)">0 / 0</span>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <h3 style="margin:0">Output log</h3>
+    <span id="progress-label" style="display:none;font-size:0.8em;font-weight:600;font-family:ui-monospace,monospace;color:var(--fg,#e0e0e0)">0 / 0</span>
+  </div>
+  <div id="progress-wrap" style="display:none;margin-bottom:10px">
+    <div style="height:3px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden">
+      <div id="progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#3b82f6,#10b981);border-radius:2px;transition:width 0.5s ease"></div>
     </div>
   </div>
   <pre id="log">En attente d'une action...</pre>
@@ -192,10 +194,11 @@ function _updateProgress(done, total) {
   const wrap = document.getElementById("progress-wrap");
   const bar = document.getElementById("progress-bar");
   const label = document.getElementById("progress-label");
-  if (!total) { wrap.style.display = "none"; return; }
+  if (!total) { wrap.style.display = "none"; label.style.display = "none"; return; }
   wrap.style.display = "block";
-  bar.max = total;
-  bar.value = done;
+  label.style.display = "inline";
+  const pct = Math.round((done / total) * 100);
+  bar.style.width = pct + "%";
   label.textContent = done + " / " + total;
 }
 
@@ -226,7 +229,10 @@ async function pollAsyncAction(name, spinner) {
     _setActionGuard(false);
     if (spinner) spinner.style.display = "none";
     document.querySelectorAll(".btn").forEach(b => b.disabled = false);
-    setTimeout(() => { document.getElementById("progress-wrap").style.display = "none"; }, 3000);
+    setTimeout(() => {
+      document.getElementById("progress-wrap").style.display = "none";
+      document.getElementById("progress-label").style.display = "none";
+    }, 3000);
     refreshInstances();
   }
 }
