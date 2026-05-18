@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import subprocess
 import threading
 import time
@@ -42,6 +43,14 @@ PUBLIC_URL = os.environ.get("ORCHESTRATOR_PUBLIC_URL", f"http://{API_BIND}")
 # Rate-limit state persistence
 RATE_STATE_PATH = os.environ.get("ORCHESTRATOR_RATE_STATE_PATH", "/var/lib/ctf/rate_state.json")
 _rate_persist_lock = threading.Lock()
+
+# Async prebuild state
+_prebuild_lock = threading.Lock()
+_prebuild_state: dict = {"status": "idle", "result": None}
+
+# Async sync state
+_sync_lock = threading.Lock()
+_sync_state: dict = {"status": "idle", "log": "", "result": None}
 
 # Prometheus metrics (no-op if prometheus_client not installed)
 if _PROM_AVAILABLE:
@@ -282,10 +291,24 @@ def admin_kill_all() -> dict:
     return {"ok": True, "killed": killed, "errors": errors}
 
 
-def admin_sync_challenges() -> dict:
-    """Run sync_challenges_ctfd.py against CTFd."""
+def _count_challenges() -> int:
+    try:
+        return sum(1 for _ in Path(CHALLENGES_ROOT).rglob("challenge.yml"))
+    except OSError:
+        return 0
+
+
+def _run_sync_background() -> None:
+    global _sync_state
     if not CTFD_API_TOKEN:
-        return {"ok": False, "error": "ORCHESTRATOR_CTFD_API_TOKEN not set"}
+        with _sync_lock:
+            _sync_state = {"status": "done", "log": "ERROR: ORCHESTRATOR_CTFD_API_TOKEN not set",
+                           "done_count": 0, "total": 0, "result": {"ok": False, "error": "ORCHESTRATOR_CTFD_API_TOKEN not set"}}
+        return
+    total = _count_challenges()
+    with _sync_lock:
+        _sync_state["total"] = total
+        _sync_state["done_count"] = 0
     cmd = [
         "python3", SYNC_SCRIPT,
         "--ctfd-url", CTFD_BASE_URL,
@@ -294,27 +317,53 @@ def admin_sync_challenges() -> dict:
         "--instance-base-url", PUBLIC_URL,
         "--connection-mode", "launch-link",
     ]
+    log_lines: list = []
+    done_count = 0
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        return {"ok": proc.returncode == 0, "stdout": proc.stdout[-4000:], "stderr": proc.stderr[-1000:]}
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        for line in proc.stdout:
+            clean = re.sub(r'\x1b\[[0-9;]*m', '', line).rstrip()
+            if clean:
+                log_lines.append(clean)
+                if clean.startswith("OK:"):
+                    done_count += 1
+                with _sync_lock:
+                    _sync_state["log"] = "\n".join(log_lines[-200:])
+                    _sync_state["done_count"] = done_count
+        proc.wait(timeout=120)
+        result = {"ok": proc.returncode == 0}
     except subprocess.TimeoutExpired:
-        return {"ok": False, "error": "sync timed out after 120s"}
+        proc.kill()
+        result = {"ok": False, "error": "sync timed out after 120s"}
     except OSError as exc:
-        return {"ok": False, "error": str(exc)}
+        result = {"ok": False, "error": str(exc)}
+    with _sync_lock:
+        _sync_state = {"status": "done", "log": "\n".join(log_lines[-200:]),
+                       "done_count": done_count, "total": total, "result": result}
 
 
-def admin_prebuild_images() -> dict:
-    """Build all Docker images found under CHALLENGES_ROOT."""
+def admin_sync_challenges() -> dict:
+    """Kept for direct calls — async path via _run_sync_background."""
+    pass
+
+
+def _run_prebuild_background() -> None:
+    global _prebuild_state
+    compose_files = [
+        f for f in Path(CHALLENGES_ROOT).rglob("docker-compose.yml")
+        if "build:" in (f.read_text(encoding="utf-8") if f.exists() else "")
+    ]
+    total = len(compose_files)
     results = []
-    for compose_file in Path(CHALLENGES_ROOT).rglob("docker-compose.yml"):
+    for i, compose_file in enumerate(compose_files):
         folder = compose_file.parent
-        # Only build if there's an explicit build: stanza
-        try:
-            content = compose_file.read_text(encoding="utf-8")
-            if "build:" not in content:
-                continue
-        except OSError:
-            continue
+        with _prebuild_lock:
+            _prebuild_state["current"] = folder.name
+            _prebuild_state["done_count"] = i
+            _prebuild_state["total"] = total
+            _prebuild_state["log"] = "\n".join(
+                f"{'OK' if r['ok'] else 'FAIL'}: {r['challenge']}" for r in results
+            ) + (f"\nBuilding ({i+1}/{total}): {folder.name}..." if i < total else "")
         proc = subprocess.run(
             ["docker", "compose", "-f", str(compose_file), "build", "--no-cache"],
             capture_output=True, text=True, cwd=str(folder), timeout=600,
@@ -325,7 +374,21 @@ def admin_prebuild_images() -> dict:
             "stderr": proc.stderr[-500:] if proc.returncode != 0 else "",
         })
     built = sum(1 for r in results if r["ok"])
-    return {"ok": True, "built": built, "total": len(results), "results": results}
+    final_log = "\n".join(
+        f"{'OK' if r['ok'] else 'FAIL'}: {r['challenge']}" + (f"\n  {r['stderr']}" if r['stderr'] else "")
+        for r in results
+    )
+    with _prebuild_lock:
+        _prebuild_state = {
+            "status": "done",
+            "result": {"ok": True, "built": built, "total": total, "results": results},
+            "log": final_log,
+        }
+
+
+def admin_prebuild_images() -> dict:
+    """Build all Docker images found under CHALLENGES_ROOT (used by background thread)."""
+    pass  # logic moved to _run_prebuild_background
 
 
 UI_HTML = """<!doctype html>
@@ -621,6 +684,18 @@ class Handler(BaseHTTPRequestHandler):
             self._json_response(200, payload)
             return
 
+        if path == "/admin/prebuild/status":
+            with _prebuild_lock:
+                state = dict(_prebuild_state)
+            self._json_response(200, {"ok": True, **state})
+            return
+
+        if path == "/admin/sync/status":
+            with _sync_lock:
+                state = dict(_sync_state)
+            self._json_response(200, {"ok": True, **state})
+            return
+
         self._json_response(404, {"error": "not found"})
 
     def _execute_action(self, path: str, data: dict) -> tuple[int, dict]:
@@ -750,15 +825,30 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if path == "/admin/sync":
-            payload = admin_sync_challenges()
-            self._audit_http("admin_sync", 200 if payload.get("ok") else 500, path)
-            self._json_response(200 if payload.get("ok") else 500, payload)
+            with _sync_lock:
+                if _sync_state["status"] == "running":
+                    self._json_response(200, {"ok": True, "status": "running"})
+                    return
+                _sync_state["status"] = "running"
+                _sync_state["log"] = ""
+                _sync_state["done_count"] = 0
+                _sync_state["total"] = 0
+                _sync_state["result"] = None
+            threading.Thread(target=_run_sync_background, daemon=True).start()
+            self._audit_http("admin_sync_start", 202, path)
+            self._json_response(202, {"ok": True, "status": "started"})
             return
 
         if path == "/admin/prebuild":
-            payload = admin_prebuild_images()
-            self._audit_http("admin_prebuild", 200, path)
-            self._json_response(200, payload)
+            with _prebuild_lock:
+                if _prebuild_state["status"] == "running":
+                    self._json_response(200, {"ok": True, "status": "running"})
+                    return
+                _prebuild_state["status"] = "running"
+                _prebuild_state["result"] = None
+            threading.Thread(target=_run_prebuild_background, daemon=True).start()
+            self._audit_http("admin_prebuild_start", 202, path)
+            self._json_response(202, {"ok": True, "status": "started"})
             return
 
         # Player-facing routes require signature verification
