@@ -15,5 +15,5 @@ hint1: |
 hint2: |
   Essaie : unzip -v secret.zip ou zipinfo -v secret.zip pour voir les métadonnées complètes.
 hint3: |
-  En Python : zipfile.ZipFile('secret.zip').comment — les commentaires ZIP ne sont pas visibles avec un simple unzip.
+  Le format ZIP supporte des commentaires attachés à l'archive entière, invisibles avec un unzip standard. Des outils comme Python's zipfile, un éditeur hex, ou binwalk peuvent révéler ces données cachées.
 flag: CTF{zip_comment_forensics}

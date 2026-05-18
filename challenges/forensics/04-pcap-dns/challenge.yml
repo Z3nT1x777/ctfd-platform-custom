@@ -14,5 +14,5 @@ hint1: |
 hint2: |
   Les données ont été encodées et découpées dans les noms de domaines des requêtes DNS. Observe les sous-domaines vers *.exfil.ctf.local
 hint3: |
-  Extrais les sous-domaines dans l'ordre, concatène-les, puis décode le résultat en base32 (Python : base64.b32decode(...)).
+  Extrais les sous-domaines dans l'ordre chronologique, concatène-les. Le résultat est encodé — essaie les encodages classiques (base64, base32, hex) jusqu'à obtenir du texte lisible.
 flag: CTF{dns_tunnel_data_exfil}

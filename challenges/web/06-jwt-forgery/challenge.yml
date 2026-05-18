@@ -14,6 +14,6 @@ hint1: |
 hint2: |
   La clé secrète utilisée pour signer les tokens est un mot de passe du dictionnaire commun.
 hint3: |
-  Craque le secret : hashcat -a 0 -m 16500 <token> rockyou.txt — puis forge un token admin avec PyJWT.
+  Un outil de brute force (hashcat, john) avec une wordlist connue peut retrouver un secret faible en quelques secondes. Une fois le secret découvert, une bibliothèque JWT (ex: PyJWT) permet de forger un token avec le rôle admin.
 flag: CTF{jwt_weak_secret_cracked}
 port: 5035
