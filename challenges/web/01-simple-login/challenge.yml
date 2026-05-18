@@ -1,6 +1,6 @@
 name: simple-login
 category: web
-value: 75
+value: 100
 type: docker
 connection_mode: web
 container_port: 5000

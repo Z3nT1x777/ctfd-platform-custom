@@ -17,6 +17,6 @@ hint1: |
 hint2: |
   Utilise getcap -r / 2>/dev/null pour trouver les binaires avec des capabilities.
 hint3: |
-  cap_setuid permet de changer d'UID. python3 -c 'import os; os.setuid(0); os.system("/bin/bash")'
+  cap_setuid permet à un processus de changer son UID sans être root. Un interpréteur avec cette capability peut appeler os.setuid(0) avant de spawner un shell — cherche comment faire ça dans le langage de l'interpréteur trouvé.
 flag: CTF{linux_capabilities_cap_setuid}
 port: 5024

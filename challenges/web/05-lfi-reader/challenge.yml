@@ -13,6 +13,6 @@ hint1: |
 hint2: |
   Essaie de remonter dans l'arborescence avec des séquences : ../../../../etc/passwd
 hint3: |
-  Le flag se trouve dans /flag.txt à la racine du système de fichiers du container.
+  Une fois le path traversal confirmé (/etc/passwd fonctionne ?), cherche les fichiers sensibles à la racine du système de fichiers du container. Les flags sont souvent placés dans des fichiers texte à des emplacements standard.
 flag: CTF{lfi_path_traversal_to_root}
 port: 5034

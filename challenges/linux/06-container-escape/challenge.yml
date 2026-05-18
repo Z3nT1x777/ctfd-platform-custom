@@ -17,7 +17,7 @@ hint1: |
 hint2: |
   Le socket Docker permet de contrôler le démon Docker du host. Tu peux lancer de nouveaux containers.
 hint3: |
-  docker run -v /:/hostfs alpine ... monte le filesystem du host dans un nouveau container.
+  En contrôlant le démon Docker du host, tu peux lancer un nouveau container en montant le filesystem racine du host comme volume. Cherche comment accéder à un fichier sur le host depuis l'intérieur d'un container nouvellement créé.
 flag: CTF{docker_socket_escape_to_host}
 port: 5025
 setup_note: |

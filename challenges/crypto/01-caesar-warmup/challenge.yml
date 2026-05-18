@@ -1,6 +1,6 @@
 name: caesar-warmup
 category: crypto
-value: 50
+value: 100
 type: static
 description: |
   Un message intercepté semble avoir été chiffré avec la méthode favorite d'un célèbre général romain. Déchiffre ce message pour obtenir le flag.
