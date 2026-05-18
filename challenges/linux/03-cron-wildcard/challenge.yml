@@ -17,6 +17,6 @@ hint1: |
 hint2: |
   Regarde /etc/cron.d/. La commande tar est appelée avec un wildcard sur un dossier accessible en écriture.
 hint3: |
-  Tar accepte des arguments via des noms de fichiers : --checkpoint=1 et --checkpoint-action=exec=cmd. Crée ces fichiers dans /tmp/uploads.
+  La commande tar interprète certains noms de fichiers commençant par '--' comme des arguments. Cherche "tar wildcard injection" pour découvrir les options qui permettent d'exécuter des commandes arbitraires lors d'une archive.
 flag: CTF{tar_wildcard_cron_injection}
 port: 5022

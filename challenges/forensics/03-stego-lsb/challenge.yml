@@ -14,5 +14,5 @@ hint1: |
 hint2: |
   Essaie l'outil StegSolve ou zsteg (Linux). Ou écris un script Python avec Pillow.
 hint3: |
-  Le message est caché dans le bit de poids faible du canal Rouge, pixel par pixel, ligne par ligne. Lis les bits et regroupe-les par 8 (ASCII).
+  Le message est encodé dans les LSB d'un canal de couleur spécifique, pixel par pixel. Décode les bits en séquence et regroupe-les par 8 pour obtenir les caractères ASCII — zsteg ou un script Pillow peuvent automatiser ça.
 flag: CTF{lsb_pixels_dont_lie}

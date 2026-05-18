@@ -13,6 +13,6 @@ hint1: |
 hint2: |
   Essaie d'injecter une expression Jinja2 dans le champ de note : {{7*7}}
 hint3: |
-  Pour lire les variables d'environnement en Jinja2, essaie : {{config.items()}} ou {{request.environ.get('FLAG')}}
+  En Jinja2, tu peux accéder aux objets du contexte Flask (config, request, g). Cherche comment lire les variables d'environnement ou la configuration depuis un template — la documentation Jinja2/Flask est ton amie.
 flag: CTF{jinja2_ssti_oops}
 port: 5031

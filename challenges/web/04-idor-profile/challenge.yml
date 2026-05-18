@@ -13,6 +13,6 @@ hint1: |
 hint2: |
   L'identifiant utilisateur dans l'URL n'est pas validé côté serveur.
 hint3: |
-  L'admin a un ID très bas (essaie 1 ou 2). Modifie le paramètre ?user_id= dans l'URL.
+  Les comptes administrateurs sont créés en premier lors du setup d'une application — leur ID numérique tend à être parmi les plus bas. Modifie le paramètre dans l'URL et itère.
 flag: CTF{idor_user_enumeration_owned}
 port: 5033
