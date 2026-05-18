@@ -3,23 +3,27 @@ category: osint
 value: 150
 type: static
 description: |
-  Static OSINT challenge with a visual clue trail.
-  
-  <b>Instructions :</b>
-  
-    1. Accède à la page du challenge :
-      http://192.168.56.10/osint/metro-memory-trail/resources/
-  2. Analyse les images et leurs métadonnées dans la section "Clues".
-  3. Combine les indices pour retrouver la station et l'année.
-  4. Format du flag : <code>CTF{city_station_YYYY}</code>
+  Un informateur sous couverture a uploadé deux photos avant de disparaître.
+  Ces images semblent anodines — mais elles contiennent les coordonnées d'un lieu de rendez-vous et une date codée dans leurs métadonnées.
+
+  <b>Mission :</b> exploite les deux fichiers pour reconstituer le lieu et l'année du rendez-vous.
+
+  <b>Accès :</b>
+  <a href="http://192.168.56.10/osint/metro-memory-trail/resources/" target="_blank">
+    http://192.168.56.10/osint/metro-memory-trail/resources/
+  </a>
+
+  Format du flag : <code>CTF{ville_lieu_AAAA}</code>
 
 connection_info: http://192.168.56.10/osint/metro-memory-trail/resources/
 
 hint1: |
-  Accède à la page du challenge et examine chaque image disponible dans la section "Clues". Cherche des détails visuels caractéristiques : architecture, panneaux, logos.
+  Accède à la page du challenge et examine les deux images. Pour la première (clue.jpg), identifie visuellement le monument ou le lieu représenté — son nom officiel compte.
+
 hint2: |
-  Les métadonnées EXIF d'une image peuvent révéler la date de prise de vue et parfois les coordonnées GPS. Utilise exiftool ou un viewer EXIF en ligne.
+  Les fichiers JPEG embarquent des métadonnées EXIF. Utilise un outil comme exiftool, exifmeta.com ou metadata2go.com pour inspecter chaque image. L'une contient des coordonnées GPS, l'autre une date.
+
 hint3: |
-  Le format du flag est CTF{ville_station_YYYY}. Les indices pointent vers une ville européenne connue pour son réseau de transport. L'année correspond à un événement historique marquant.
+  Les coordonnées GPS pointent vers un lieu à Paris. Colle-les dans Google Maps pour trouver le nom exact. La date EXIF de la seconde image donne l'année. Le flag suit le format CTF{ville_lieu_AAAA}.
 
 flag: CTF{paris_bastille_1989}

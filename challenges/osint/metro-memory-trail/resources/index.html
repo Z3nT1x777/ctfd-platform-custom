@@ -3,37 +3,264 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Metro Memory Trail</title>
+  <title>Metro Memory Trail — OSINT</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #111827; color: #e5e7eb; }
-    .wrap { max-width: 860px; margin: 24px auto; padding: 0 16px; }
-    .card { background: #1f2937; border-radius: 10px; padding: 16px; margin-bottom: 14px; border: 1px solid #374151; }
-    img { max-width: 100%; border-radius: 8px; border: 1px solid #374151; }
-    code { background: #374151; padding: 2px 6px; border-radius: 4px; }
-    a { color: #60a5fa; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1a1f2e 0%, #0d1117 100%);
+      border-bottom: 1px solid #21262d;
+      padding: 28px 24px 20px;
+      text-align: center;
+    }
+    header .badge {
+      display: inline-block;
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #8b949e;
+      font-size: 0.7em;
+      font-family: monospace;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 10px;
+    }
+    header h1 {
+      font-size: 1.9em;
+      font-weight: 700;
+      color: #e6edf3;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      margin-top: 8px;
+      color: #8b949e;
+      font-size: 0.92em;
+    }
+
+    .wrap { max-width: 820px; margin: 32px auto; padding: 0 20px; }
+
+    /* Brief / lore card */
+    .lore {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-left: 4px solid #388bfd;
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin-bottom: 28px;
+      line-height: 1.7;
+    }
+    .lore h2 {
+      font-size: 0.75em;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #388bfd;
+      margin-bottom: 10px;
+    }
+    .lore p { color: #c9d1d9; font-size: 0.95em; }
+    .lore .flag-format {
+      display: inline-block;
+      background: #21262d;
+      border: 1px solid #388bfd44;
+      font-family: monospace;
+      padding: 4px 12px;
+      border-radius: 6px;
+      color: #79c0ff;
+      margin-top: 12px;
+      font-size: 0.9em;
+    }
+
+    /* Clue grid */
+    .clues {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 620px) { .clues { grid-template-columns: 1fr; } }
+
+    .clue-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .clue-card .img-wrap {
+      background: #0d1117;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      min-height: 220px;
+    }
+    .clue-card img {
+      max-width: 100%;
+      max-height: 280px;
+      border-radius: 6px;
+      border: 1px solid #21262d;
+      object-fit: cover;
+    }
+    .clue-card .meta {
+      padding: 14px 16px;
+      border-top: 1px solid #21262d;
+    }
+    .clue-card .meta .num {
+      font-size: 0.68em;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #388bfd;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+    .clue-card .meta h3 {
+      color: #e6edf3;
+      font-size: 0.98em;
+      margin-bottom: 6px;
+    }
+    .clue-card .meta p {
+      color: #8b949e;
+      font-size: 0.85em;
+      line-height: 1.55;
+    }
+    .clue-card .meta .filename {
+      display: inline-block;
+      margin-top: 8px;
+      background: #21262d;
+      border: 1px solid #30363d;
+      font-family: monospace;
+      font-size: 0.78em;
+      color: #79c0ff;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    /* Tools section */
+    .tools {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 18px 22px;
+    }
+    .tools h2 {
+      font-size: 0.75em;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #3fb950;
+      margin-bottom: 14px;
+    }
+    .tools ul {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .tools ul li a {
+      display: inline-block;
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #79c0ff;
+      text-decoration: none;
+      padding: 5px 14px;
+      border-radius: 6px;
+      font-size: 0.85em;
+      font-family: monospace;
+      transition: border-color 0.15s;
+    }
+    .tools ul li a:hover { border-color: #79c0ff; }
+
+    footer {
+      text-align: center;
+      padding: 28px;
+      color: #484f58;
+      font-size: 0.8em;
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Metro Memory Trail</h1>
-    <p>OSINT challenge: reconstruct a hidden location from tiny clues spread across media.</p>
 
-    <div class="card">
-      <h3>Clue 1 (PNG)</h3>
-      <p>The first clue is visual. Check <code>clue.png</code> and inspect metadata if needed.</p>
-      <img src="assets/clue.png" alt="clue png">
-    </div>
+<header>
+  <div class="badge">OSINT · 150 pts</div>
+  <h1>Metro Memory Trail</h1>
+  <p>Un contact a disparu. Il a laissé deux photos. Elles contiennent tout ce qu'il faut.</p>
+</header>
 
-    <div class="card">
-      <h3>Clue 2 (JPEG)</h3>
-      <p>The second clue is in <code>final.jpg</code>. Think place + year + short tag format.</p>
-      <img src="assets/final.jpg" alt="final jpg">
-    </div>
+<div class="wrap">
 
-    <div class="card">
-      <h3>Hint</h3>
-      <p>Combine both clues to build the flag: <code>CTF{city_station_YYYY}</code>.</p>
-    </div>
+  <!-- Brief -->
+  <div class="lore">
+    <h2>Briefing</h2>
+    <p>
+      Tu travailles pour une cellule d'analyse. Un informateur sous couverture devait transmettre
+      les coordonnées d'un lieu de rendez-vous. Avant de disparaître, il a uploadé deux photos
+      sur un serveur anonyme — sans aucun message.
+    </p>
+    <p style="margin-top:10px">
+      Ces photos <em>semblent</em> anodines. Mais un agent expérimenté sait que l'image n'est
+      jamais le seul message : les <strong>métadonnées</strong> parlent aussi. Exploite chaque
+      fichier pour retrouver le lieu et la date du rendez-vous.
+    </p>
+    <p style="margin-top:10px">
+      Format du flag :
+      <span class="flag-format">CTF{ville_lieu_AAAA}</span>
+    </p>
   </div>
+
+  <!-- Clues -->
+  <div class="clues">
+
+    <div class="clue-card">
+      <div class="img-wrap">
+        <img src="assets/clue.jpg" alt="Document visuel — indice 1">
+      </div>
+      <div class="meta">
+        <div class="num">Indice 1 / 2</div>
+        <h3>Document photographique</h3>
+        <p>
+          Photo transmise par l'informateur. Identifie le lieu représenté —
+          le nom officiel du site est ta première clé.
+        </p>
+        <span class="filename">clue.jpg</span>
+      </div>
+    </div>
+
+    <div class="clue-card">
+      <div class="img-wrap">
+        <img src="assets/final.jpg" alt="Document visuel — indice 2">
+      </div>
+      <div class="meta">
+        <div class="num">Indice 2 / 2</div>
+        <h3>Archive photographique</h3>
+        <p>
+          La date ne figure nulle part dans l'image… mais elle est bien là.
+          Creuse au-delà de ce que l'œil voit.
+        </p>
+        <span class="filename">final.jpg</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Tools -->
+  <div class="tools">
+    <h2>Outils suggérés</h2>
+    <ul>
+      <li><a href="https://exifmeta.com" target="_blank" rel="noopener">exifmeta.com</a></li>
+      <li><a href="https://www.metadata2go.com" target="_blank" rel="noopener">metadata2go.com</a></li>
+      <li><a href="https://www.geohack.toolforge.org" target="_blank" rel="noopener">geohack (coords → lieu)</a></li>
+      <li><a href="https://maps.google.com" target="_blank" rel="noopener">Google Maps</a></li>
+    </ul>
+  </div>
+
+</div>
+
+<footer>Metro Memory Trail — CTF Challenge · OSINT Category</footer>
+
 </body>
 </html>
